@@ -1,9 +1,9 @@
 {
   "project": "TurboFlash Windows Installer",
-  "last_session": "2026-07-14",
-  "current_focus": "Validated Flash parameter and JSON metadata schema changes; Windows artifact rebuild pending wine64",
+  "last_session": "2026-07-15",
+  "current_focus": "FlashTest linked to GitHub repository and pushed; Windows artifact rebuild pending wine64",
   "progress": {
-    "description": "Implemented per-chunk Flash VADER parameters, fixed run-level metadata, metadata-preserving repair/replay paths, and CFG scale naming across 14 Python files. Baseline commit 32d2a30 exists; implementation changes remain uncommitted. Syntax, imports, metadata merge, legacy CFG compatibility, and docstring checks pass."
+    "description": "Implemented per-chunk Flash VADER parameters, fixed run-level metadata, metadata-preserving repair/replay paths, and CFG scale naming across 14 Python files. Changes committed in ff7bd1a, merged with remote initial history in 416d6e4, and pushed to origin/main. Syntax, imports, metadata merge, legacy CFG compatibility, and docstring checks pass."
   },
   "decisions": {
     "cpu_support": "Not a target; preserve existing no-GPU branch without additional CPU handling.",
@@ -16,12 +16,12 @@
   },
   "next_tasks": [
     "Run build/windows/build_linux.sh on host with wine64 available",
-    "Review and commit uncommitted implementation changes when commit is requested",
+    "Keep future work on master tracking origin/main",
     "Optionally validate first launch on Windows RTX 5070 hardware"
   ],
   "open_questions": [
     "Windows installer rebuild unavailable on current host because wine64 is missing.",
     "Windows RTX 5070 runtime smoke test unavailable because target hardware is not available."
   ],
-  "notes": "Do not modify Linux CUDA lookup in modules/tts_engine.py or GUI flashinfer dropdown. Current source changes are uncommitted; existing build/windows/output artifact was not rebuilt after them."
+  "notes": "Do not modify Linux CUDA lookup in modules/tts_engine.py or GUI flashinfer dropdown. Remote origin is https://github.com/danneauxs/DNXS-Spokenword-Chatterbox-Flash-TTS.git. Existing build/windows/output artifact was not rebuilt after source changes."
 }
