@@ -18,7 +18,7 @@ def load_chunks(path):
         return data
 
 def load_metadata(path):
-    """Extract metadata from JSON file"""
+    """Extract first metadata entry from JSON file when present."""
     try:
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -33,6 +33,26 @@ def load_metadata(path):
         print(f"⚠️ Error loading metadata from {path}: {e}")
     
     return None
+
+
+def merge_tts_params(chunk=None, metadata_params=None, defaults=None):
+    """Merge run-level TTS settings with chunk overrides.
+
+    New Flash JSON stores fixed generation settings in metadata and VADER-adjusted
+    values in each chunk. Older files may still call CFG scale ``cfg_weight``.
+    """
+    merged = {}
+    if defaults:
+        merged.update(defaults)
+    if metadata_params:
+        merged.update(metadata_params)
+    if isinstance(chunk, dict):
+        merged.update(chunk.get('tts_params', {}))
+
+    if 'cfg_scale' not in merged and 'cfg_weight' in merged:
+        merged['cfg_scale'] = merged['cfg_weight']
+    merged.pop('cfg_weight', None)
+    return merged
 
 def load_voice_sections(path):
     """Parse a multi-voice JSON into a list of (metadata, chunks) tuples.

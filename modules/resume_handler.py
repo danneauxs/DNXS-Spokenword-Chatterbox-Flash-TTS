@@ -261,7 +261,7 @@ def process_book_folder_resume(book_dir, voice_path, tts_params, device, start_c
         f"Dynamic Workers: {USE_DYNAMIC_WORKERS}",
         f"Voice used: {voice_path.name}",
         f"Exaggeration: {tts_params['exaggeration']}",
-        f"CFG weight: {tts_params['cfg_weight']}",
+        f"CFG Scale: {tts_params.get('cfg_scale', DEFAULT_FLASH_CFG_SCALE)}",
         f"Temperature: {tts_params['temperature']}",
         f"Processing Status: IN PROGRESS...",
         f"="*50
@@ -592,10 +592,19 @@ def resume_book_from_chunk(start_chunk):
         return float(val) if val else default
 
     exaggeration = prompt_float("Enter exaggeration (emotion intensity)", DEFAULT_EXAGGERATION)
-    cfg_weight = prompt_float("Enter cfg_weight (faithfulness to text)", DEFAULT_CFG_WEIGHT)
+    cfg_scale = prompt_float("Enter cfg_scale (faithfulness to text)", DEFAULT_FLASH_CFG_SCALE)
     temperature = prompt_float("Enter temperature (randomness)", DEFAULT_TEMPERATURE)
+    num_steps = int(prompt_float("Enter num_steps", DEFAULT_FLASH_NUM_STEPS))
+    time_shift_tau = prompt_float("Enter time_shift_tau", DEFAULT_FLASH_TIME_SHIFT_TAU)
 
-    tts_params = dict(exaggeration=exaggeration, cfg_weight=cfg_weight, temperature=temperature)
+    tts_params = dict(
+        exaggeration=exaggeration,
+        cfg_scale=cfg_scale,
+        temperature=temperature,
+        num_steps=num_steps,
+        time_shift_tau=time_shift_tau,
+        backend='torch',
+    )
 
     # Determine device with proper validation
     from modules.tts_engine import get_best_available_device

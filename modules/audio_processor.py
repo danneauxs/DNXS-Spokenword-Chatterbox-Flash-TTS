@@ -421,9 +421,9 @@ def adjust_parameters_for_retry(params, quality_score, attempt_num):
         # Second retry: adjust exaggeration (less emotion)
         adjusted['exaggeration'] = max(TTS_PARAM_MIN_EXAGGERATION,
                                      adjusted['exaggeration'] - exag_adj)
-        # Also increase cfg_weight (more faithful to text)
-        adjusted['cfg_weight'] = min(TTS_PARAM_MAX_CFG_WEIGHT,
-                                   adjusted['cfg_weight'] + cfg_adj)
+        # Also increase cfg_scale (more faithful to text)
+        adjusted['cfg_scale'] = min(TTS_PARAM_MAX_CFG_SCALE,
+                                   adjusted.get('cfg_scale', DEFAULT_FLASH_CFG_SCALE) + cfg_adj)
 
     return adjusted
 

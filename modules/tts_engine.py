@@ -460,10 +460,12 @@ def _core_tts_params_sig(tts_params: dict | None):
     """Prewarms the TTS model with a voice sample to reduce cold start quality issues. Args: model (object): The TTS model to be prewarmed. voice_path (str): Path to the voice sample file. tts_params (dict, optional): Parameters for text-to-speech generation. Returns: None"""
     tp = tts_params or {}
     return (
-        round(float(tp.get('cfg_weight', 0.5)), 3),
+        round(float(tp.get('cfg_scale', 1.0)), 3),
         round(float(tp.get('temperature', 0.85)), 3),
-        round(float(tp.get('min_p', 0.05)), 3),
-        round(float(tp.get('top_p', 0.9)), 3),
+        round(float(tp.get('exaggeration', 0.5)), 3),
+        int(tp.get('num_steps', DEFAULT_FLASH_NUM_STEPS)),
+        round(float(tp.get('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU)), 3),
+        str(tp.get('backend', 'torch')),
     )
 
 
@@ -504,9 +506,10 @@ def prewarm_model_with_voice(model, voice_path, tts_params=None):
         if tts_params is None:
             tts_params = {
                 'temperature': 0.6,
-                'num_steps': 10,
-                'cfg_scale': 1.0,
-                'time_shift_tau': 0.1,
+                'num_steps': DEFAULT_FLASH_NUM_STEPS,
+                'cfg_scale': DEFAULT_FLASH_CFG_SCALE,
+                'time_shift_tau': DEFAULT_FLASH_TIME_SHIFT_TAU,
+                'backend': 'torch',
             }
 
         # Prepare voice conditionals
@@ -523,9 +526,9 @@ def prewarm_model_with_voice(model, voice_path, tts_params=None):
             wav_np = model.generate(
                 dummy_text,
                 temperature=tts_params.get('temperature', 0.6),
-                num_steps=tts_params.get('num_steps', 10),
-                cfg_scale=tts_params.get('cfg_scale', 1.0),
-                time_shift_tau=tts_params.get('time_shift_tau', 0.1),
+                num_steps=tts_params.get('num_steps', DEFAULT_FLASH_NUM_STEPS),
+                cfg_scale=tts_params.get('cfg_scale', DEFAULT_FLASH_CFG_SCALE),
+                time_shift_tau=tts_params.get('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU),
                 # flashinfer's kernels are ABI-matched to torch 2.7.x; we're on
                 # 2.6.0 and "auto" would crash trying flashinfer - force torch SDPA.
                 backend=tts_params.get('backend', 'torch'),
@@ -823,7 +826,8 @@ def process_batch(
         "exaggeration", "audio_prompt_path", "backend",
     }
     tts_args = {k: v for k, v in shared_tts_params.items() if k in flash_supported_params}
-    tts_args.setdefault('num_steps', 10)
+    tts_args.setdefault('num_steps', DEFAULT_FLASH_NUM_STEPS)
+    tts_args.setdefault('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU)
     # flashinfer's kernels are ABI-matched to torch 2.7.x; we're on 2.6.0
     # (chatterbox-tts's hard pin). "auto" would silently try flashinfer and
     # crash - force torch SDPA until the torch version issue is resolved.
@@ -1086,12 +1090,12 @@ def process_one_chunk(
     current_tts_params = tts_params.copy()
 
     # Debug: Log the initial parameters for this chunk
-    logging.info(f"🎛️ Chunk {chunk_id_str} initial TTS params: exag={current_tts_params.get('exaggeration', 0.0):.3f}, cfg={current_tts_params.get('cfg_weight', 0.0):.3f}, temp={current_tts_params.get('temperature', 0.0):.3f}, min_p={current_tts_params.get('min_p', 0.0):.3f}")
+    logging.info(f"🎛️ Chunk {chunk_id_str} initial TTS params: exag={current_tts_params.get('exaggeration', 0.0):.3f}, cfg={current_tts_params.get('cfg_scale', 1.0):.3f}, temp={current_tts_params.get('temperature', 0.0):.3f}")
 
     for attempt_num in range(max_attempts):
         logging.info(f"🔁 Starting TTS for chunk {chunk_id_str}, attempt {attempt_num + 1}/{max_attempts}")
         if attempt_num > 0:
-            logging.info(f"🔧 Adjusted params: exag={current_tts_params.get('exaggeration', 0.0):.3f}, cfg={current_tts_params.get('cfg_weight', 0.0):.3f}, temp={current_tts_params.get('temperature', 0.0):.3f}")
+            logging.info(f"🔧 Adjusted params: exag={current_tts_params.get('exaggeration', 0.0):.3f}, cfg={current_tts_params.get('cfg_scale', 1.0):.3f}, temp={current_tts_params.get('temperature', 0.0):.3f}")
         
         wav = None
         audio_segment = None
@@ -1104,7 +1108,8 @@ def process_one_chunk(
                 "exaggeration", "audio_prompt_path", "backend",
             }
             tts_args = {k: v for k, v in current_tts_params.items() if k in flash_supported_params}
-            tts_args.setdefault('num_steps', 10)
+            tts_args.setdefault('num_steps', DEFAULT_FLASH_NUM_STEPS)
+            tts_args.setdefault('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU)
             # flashinfer's kernels are ABI-matched to torch 2.7.x; we're on 2.6.0
             # (chatterbox-tts's hard pin). "auto" would silently try flashinfer
             # and crash (AttributeError: shared_memory_per_block_optin) -
@@ -1333,12 +1338,12 @@ def generate_enriched_chunks(text_file, output_dir, user_tts_params=None, qualit
     # Extract VADER sensitivity parameters (GUI overrides config)
     if config_params:
         vader_exag_sensitivity = config_params.get('vader_exag_sensitivity', VADER_EXAGGERATION_SENSITIVITY)
-        vader_cfg_sensitivity = config_params.get('vader_cfg_sensitivity', VADER_CFG_WEIGHT_SENSITIVITY)
+        vader_cfg_sensitivity = config_params.get('vader_cfg_sensitivity', VADER_CFG_SCALE_SENSITIVITY)
         vader_temp_sensitivity = config_params.get('vader_temp_sensitivity', VADER_TEMPERATURE_SENSITIVITY)
         print(f"🔧 JSON Generation: Using GUI VADER sensitivity - Exag: {vader_exag_sensitivity}, CFG: {vader_cfg_sensitivity}, Temp: {vader_temp_sensitivity}")
     else:
         vader_exag_sensitivity = VADER_EXAGGERATION_SENSITIVITY
-        vader_cfg_sensitivity = VADER_CFG_WEIGHT_SENSITIVITY
+        vader_cfg_sensitivity = VADER_CFG_SCALE_SENSITIVITY
         vader_temp_sensitivity = VADER_TEMPERATURE_SENSITIVITY
         print(f"🔧 JSON Generation: Using config VADER sensitivity - Exag: {vader_exag_sensitivity}, CFG: {vader_cfg_sensitivity}, Temp: {vader_temp_sensitivity}")
 
@@ -1372,30 +1377,20 @@ def generate_enriched_chunks(text_file, output_dir, user_tts_params=None, qualit
     # Use user-provided parameters as base, or fall back to config defaults
     if user_tts_params:
         base_exaggeration = user_tts_params.get('exaggeration', BASE_EXAGGERATION)
-        base_cfg_weight = user_tts_params.get('cfg_weight', BASE_CFG_WEIGHT)
+        base_cfg_scale = user_tts_params.get('cfg_scale', BASE_CFG_SCALE)
         base_temperature = user_tts_params.get('temperature', BASE_TEMPERATURE)
-        base_min_p = user_tts_params.get('min_p', DEFAULT_MIN_P)
-        base_top_p = user_tts_params.get('top_p', DEFAULT_TOP_P)
-        base_top_k = user_tts_params.get('top_k', DEFAULT_TOP_K)
-        base_repetition_penalty = user_tts_params.get('repetition_penalty', DEFAULT_REPETITION_PENALTY)
         use_vader = user_tts_params.get('use_vader', True)  # Default to True for backward compatibility
         # Chatterbox-Flash's own params - not VADER-adjusted, passed through as-is
         base_num_steps = user_tts_params.get('num_steps', DEFAULT_FLASH_NUM_STEPS)
-        base_cfg_scale = user_tts_params.get('cfg_scale', DEFAULT_FLASH_CFG_SCALE)
         base_time_shift_tau = user_tts_params.get('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU)
         base_backend = user_tts_params.get('backend', 'torch')
 
     else:
         base_exaggeration = BASE_EXAGGERATION
-        base_cfg_weight = BASE_CFG_WEIGHT
+        base_cfg_scale = BASE_CFG_SCALE
         base_temperature = BASE_TEMPERATURE
-        base_min_p = DEFAULT_MIN_P
-        base_top_p = DEFAULT_TOP_P
-        base_top_k = DEFAULT_TOP_K
-        base_repetition_penalty = DEFAULT_REPETITION_PENALTY
         use_vader = True  # Default behavior
         base_num_steps = DEFAULT_FLASH_NUM_STEPS
-        base_cfg_scale = DEFAULT_FLASH_CFG_SCALE
         base_time_shift_tau = DEFAULT_FLASH_TIME_SHIFT_TAU
         base_backend = 'torch'
 
@@ -1435,28 +1430,22 @@ def generate_enriched_chunks(text_file, output_dir, user_tts_params=None, qualit
         if use_vader:
             # Apply VADER sentiment adjustments using smoothed score
             exaggeration = base_exaggeration + (compound_score * vader_exag_sensitivity)
-            cfg_weight = base_cfg_weight + (compound_score * vader_cfg_sensitivity)
+            cfg_scale = base_cfg_scale + (compound_score * vader_cfg_sensitivity)
             temperature = base_temperature + (compound_score * vader_temp_sensitivity)
-            min_p = base_min_p + (compound_score * VADER_MIN_P_SENSITIVITY)
-            repetition_penalty = base_repetition_penalty + (compound_score * VADER_REPETITION_PENALTY_SENSITIVITY)
 
             # Clamp values to defined min/max (ensure JSON values respect bounds)
             exaggeration = round(max(TTS_PARAM_MIN_EXAGGERATION, min(exaggeration, TTS_PARAM_MAX_EXAGGERATION)), 2)
-            cfg_weight = round(max(TTS_PARAM_MIN_CFG_WEIGHT, min(cfg_weight, TTS_PARAM_MAX_CFG_WEIGHT)), 2)
+            cfg_scale = round(max(TTS_PARAM_MIN_CFG_SCALE, min(cfg_scale, TTS_PARAM_MAX_CFG_SCALE)), 2)
             temperature = round(max(TTS_PARAM_MIN_TEMPERATURE, min(temperature, TTS_PARAM_MAX_TEMPERATURE)), 2)
-            min_p = round(max(TTS_PARAM_MIN_MIN_P, min(min_p, TTS_PARAM_MAX_MIN_P)), 3)
-            repetition_penalty = round(max(TTS_PARAM_MIN_REPETITION_PENALTY, min(repetition_penalty, TTS_PARAM_MAX_REPETITION_PENALTY)), 1)
 
             # Debug: Log VADER-adjusted parameters for significant changes
-            if abs(exaggeration - base_exaggeration) > 0.05 or abs(cfg_weight - base_cfg_weight) > 0.05:
-                logging.info(f"🎭 Chunk {i+1:05}: VADER adjusted params - exag: {base_exaggeration:.2f}→{exaggeration:.2f}, cfg: {base_cfg_weight:.2f}→{cfg_weight:.2f}, sentiment: {compound_score:.3f}")
+            if abs(exaggeration - base_exaggeration) > 0.05 or abs(cfg_scale - base_cfg_scale) > 0.05:
+                logging.info(f"🎭 Chunk {i+1:05}: VADER adjusted params - exag: {base_exaggeration:.2f}→{exaggeration:.2f}, cfg: {base_cfg_scale:.2f}→{cfg_scale:.2f}, sentiment: {compound_score:.3f}")
         else:
             # Use fixed base values (no VADER adjustment)
             exaggeration = base_exaggeration
-            cfg_weight = base_cfg_weight
+            cfg_scale = base_cfg_scale
             temperature = base_temperature
-            min_p = base_min_p
-            repetition_penalty = base_repetition_penalty
 
         # For high-quality chunking, boundary_type is already set by the chunker
         if chunking_quality == 'High':
@@ -1481,52 +1470,29 @@ def generate_enriched_chunks(text_file, output_dir, user_tts_params=None, qualit
             "sentiment_raw": raw_compound_score,   # Store original score for reference
             "tts_params": {
                 "exaggeration": exaggeration,
-                "cfg_weight": cfg_weight,
+                "cfg_scale": cfg_scale,
                 "temperature": temperature,
-                "min_p": min_p,
-                "top_p": base_top_p,  # Top-P remains constant (not adjusted by VADER)
-                "top_k": base_top_k,  # Top-K remains constant (not adjusted by VADER)
-                "repetition_penalty": repetition_penalty,
-                # Chatterbox-Flash's own params - constant per-run, not adjusted by VADER
-                "num_steps": base_num_steps,
-                "cfg_scale": base_cfg_scale,
-                "time_shift_tau": base_time_shift_tau,
-                "backend": base_backend,
             }
         })
 
     output_json_path = output_dir / "chunks_info.json"
 
     # Add voice metadata if provided
+    metadata = {
+        "_metadata": True,
+        "generation_timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "total_chunks": len(enriched),
+        "tts_params": {
+            "num_steps": base_num_steps,
+            "time_shift_tau": base_time_shift_tau,
+            "backend": base_backend,
+        }
+    }
     if voice_name:
-        # Try metadata method first
-        try:
-            # Create metadata entry as first element
-            metadata = {
-                "_metadata": True,
-                "voice_used": voice_name,
-                "generation_timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "total_chunks": len(enriched),
-                "tts_params": {
-                    "temperature": base_temperature,
-                    "top_p": base_top_p,
-                    "top_k": base_top_k,
-                    "repetition_penalty": base_repetition_penalty
-                }
-            }
-            enriched_with_metadata = [metadata] + enriched
-            save_chunks(output_json_path, enriched_with_metadata)
-            print(f"✅ Saved voice metadata: {voice_name}")
-        except Exception as e:
-            # Fallback to comment method if metadata fails
-            print(f"⚠️ Metadata method failed, using comment fallback: {e}")
-            save_chunks(output_json_path, enriched)
-
-            # Add voice as comment
-            from modules.voice_detector import add_voice_to_json
-            add_voice_to_json(output_json_path, voice_name, method="comment")
-    else:
-        save_chunks(output_json_path, enriched)
+        metadata["voice_used"] = voice_name
+    save_chunks(output_json_path, [metadata] + enriched)
+    if voice_name:
+        print(f"✅ Saved voice metadata: {voice_name}")
 
     return enriched
 
@@ -1544,19 +1510,22 @@ def create_parameter_microbatches(chunks):
             # Create parameter key from rounded values
             param_key = (
                 tts_params.get('exaggeration', 0.5),
-                tts_params.get('cfg_weight', 0.5),
-                tts_params.get('temperature', 0.85)
+                tts_params.get('cfg_scale', 1.0),
+                tts_params.get('temperature', 0.85),
+                tts_params.get('num_steps', DEFAULT_FLASH_NUM_STEPS),
+                tts_params.get('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU),
+                tts_params.get('backend', 'torch'),
             )
         else:
             # Default parameters for chunks without specific TTS params
-            param_key = (0.5, 0.5, 0.85)
+            param_key = (0.5, 1.0, 0.85, DEFAULT_FLASH_NUM_STEPS, DEFAULT_FLASH_TIME_SHIFT_TAU, 'torch')
 
         parameter_groups[param_key].append(chunk)
 
     # Convert groups to list of batches
     chunk_batches = []
     for param_key, chunks_in_group in parameter_groups.items():
-        exag, cfg, temp = param_key
+        exag, cfg, temp, num_steps, time_shift_tau, backend = param_key
         print(f"  📦 Micro-batch: {len(chunks_in_group)} chunks with params (exag={exag}, cfg={cfg}, temp={temp})")
 
         # SORT BY LENGTH - THE MISSING PIECE
@@ -1796,6 +1765,11 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
     print(f"🔍 DEBUG: About to call generate_enriched_chunks with config_params: {config_params}")
     print(f"🔍 DEBUG: Using voice: {voice_name_for_log}")
     all_chunks = generate_enriched_chunks(text_file_to_use, text_chunks_dir, tts_params, quality_params, config_params, voice_name_for_log)
+    from wrapper.chunk_loader import merge_tts_params
+    all_chunks = [
+        {**chunk, "tts_params": merge_tts_params(chunk, defaults=tts_params)}
+        for chunk in all_chunks
+    ]
 
     print(f"🎯 Processing {len(all_chunks)} chunks with REAL optimized inference")
 
@@ -2061,7 +2035,7 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
                     if 'tts_params' in rounded_chunk and rounded_chunk['tts_params']:
                         tts_params_copy = rounded_chunk['tts_params'].copy()
                         # Round VADER-influenced parameters to enable groupings
-                        for param in ['exaggeration', 'cfg_weight', 'temperature']:
+                        for param in ['exaggeration', 'cfg_scale', 'temperature']:
                             if param in tts_params_copy:
                                 original_value = tts_params_copy[param]
                                 steps = round(original_value / BATCH_BIN_PRECISION)
@@ -2321,10 +2295,9 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
         f"Dynamic Workers: {USE_DYNAMIC_WORKERS}",
         f"Voice used: {voice_name}",
         f"Exaggeration: {tts_params['exaggeration']}",
-        f"CFG weight: {tts_params['cfg_weight']}",
+        f"CFG Scale: {tts_params.get('cfg_scale', DEFAULT_FLASH_CFG_SCALE)}",
         f"Temperature: {tts_params['temperature']}",
         f"Num Steps: {tts_params.get('num_steps', DEFAULT_FLASH_NUM_STEPS)}",
-        f"CFG Scale: {tts_params.get('cfg_scale', DEFAULT_FLASH_CFG_SCALE)}",
         f"Time-Shift Tau: {tts_params.get('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU)}",
         f"Backend: {tts_params.get('backend', 'torch')}",
         f"Processing Time: {str(elapsed_td)}",
@@ -2562,7 +2535,8 @@ def regenerate_single_chunk(chunk_text: str, tts_params: dict, tts_model, voice_
             "exaggeration", "audio_prompt_path", "backend",
         }
         filtered_params = {k: v for k, v in tts_params.items() if k in flash_supported_params}
-        filtered_params.setdefault('num_steps', 10)
+        filtered_params.setdefault('num_steps', DEFAULT_FLASH_NUM_STEPS)
+        filtered_params.setdefault('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU)
         # Force torch SDPA - flashinfer's kernels are ABI-matched to torch
         # 2.7.x; we're on 2.6.0 and "auto" would crash trying flashinfer.
         filtered_params.setdefault('backend', 'torch')
@@ -2574,7 +2548,12 @@ def regenerate_single_chunk(chunk_text: str, tts_params: dict, tts_model, voice_
         # If parameter error, retry with minimal params
         print(f"⚠️ Retrying with minimal parameters due to: {e}")
         try:
-            minimal_params = {'temperature': 0.6, 'num_steps': 10, 'backend': 'torch'}
+            minimal_params = {
+                'temperature': 0.6,
+                'num_steps': DEFAULT_FLASH_NUM_STEPS,
+                'time_shift_tau': DEFAULT_FLASH_TIME_SHIFT_TAU,
+                'backend': 'torch',
+            }
             audio = tts_model.generate(chunk_text, **minimal_params)
             return audio
         except Exception as e2:

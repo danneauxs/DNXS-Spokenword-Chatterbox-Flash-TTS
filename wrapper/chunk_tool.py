@@ -44,7 +44,7 @@ Coordinates all chunk wrapper modules to provide unified chunk management:
 - chunk_revisions: Change tracking
 """
 
-from wrapper.chunk_loader import load_chunks, save_chunks
+from wrapper.chunk_loader import load_chunks, load_metadata, save_chunks
 from wrapper.chunk_search import search_chunks
 from wrapper.chunk_editor import update_chunk
 from wrapper.chunk_player import play_chunk_audio
@@ -53,6 +53,14 @@ from wrapper.chunk_revisions import accept_revision
 import os
 from config.config import AUDIOBOOK_ROOT
 AUDIO_DIR = AUDIOBOOK_ROOT
+
+
+def save_repair_chunks(path, chunks, metadata):
+    """Save repaired chunks while preserving run-level JSON metadata."""
+    payload = list(chunks)
+    if metadata:
+        payload.insert(0, metadata)
+    save_chunks(path, payload)
 
 def select_book_for_repair():
     """Let user select which book to repair"""
@@ -117,6 +125,7 @@ def run_chunk_repair_tool():
     
     print(f"\n📖 Loading chunks from: {chunk_path.name}")
     chunks = load_chunks(str(chunk_path))
+    metadata = load_metadata(str(chunk_path))
     
     # Determine audio directory path based on book structure
     from pathlib import Path
@@ -165,13 +174,13 @@ def run_chunk_repair_tool():
             
             print(f"  📍 Index: {index}, Boundary: {chunk['boundary_type']}")
             print(f"  😊 Sentiment: {sentiment_compound}")
-            print(f"  🎛️  TTS Params: exag={tts_params.get('exaggeration', 'N/A')}, cfg={tts_params.get('cfg_weight', 'N/A')}, temp={tts_params.get('temperature', 'N/A')}")
+            print(f"  🎛️  TTS Params: exag={tts_params.get('exaggeration', 'N/A')}, cfg={tts_params.get('cfg_scale', 'N/A')}, temp={tts_params.get('temperature', 'N/A')}")
             print(f"  📁 Audio file: chunk_{index+1:05d}.wav")
             print("\nOptions:")
             print(" 1. Play original audio")
             print(" 2. Edit text content")
             print(" 3. Edit chunk metadata (boundary, sentiment)")
-            print(" 4. Edit TTS parameters (exaggeration, cfg_weight, temperature)")
+            print(" 4. Edit TTS parameters (exaggeration, cfg_scale, temperature)")
             print(" 5. Resynthesize audio with current settings")
             print(" 6. Play revised audio")
             print(" 7. Accept revision (replace original with revised)")
@@ -194,7 +203,7 @@ def run_chunk_repair_tool():
                 if new_text:
                     chunk['text'] = new_text
                     chunk['word_count'] = len(new_text.split())
-                    save_chunks(str(chunk_path), chunks)
+                    save_repair_chunks(str(chunk_path), chunks, metadata)
                     print("✅ Text content updated successfully")
                     print(f"📊 New word count: {chunk['word_count']}")
                 else:
@@ -223,7 +232,7 @@ def run_chunk_repair_tool():
                         else:
                             print("❌ Sentiment score must be between -1.0 and 1.0")
                     
-                    save_chunks(str(chunk_path), chunks)
+                    save_repair_chunks(str(chunk_path), chunks, metadata)
                     print("✅ Chunk metadata updated successfully")
                 except ValueError as e:
                     print(f"❌ Invalid input: {e}")
@@ -255,7 +264,7 @@ def run_chunk_repair_tool():
                 # Edit TTS parameters
                 print(f"Current TTS parameters:")
                 current_exag = current_tts_params.get('exaggeration', 1.0)
-                current_cfg = current_tts_params.get('cfg_weight', 0.7)
+                current_cfg = current_tts_params.get('cfg_scale', DEFAULT_FLASH_CFG_SCALE)
                 current_temp = current_tts_params.get('temperature', 0.7)
                 
                 print(f"  Exaggeration: {current_exag}")
@@ -263,7 +272,7 @@ def run_chunk_repair_tool():
                 print(f"  Temperature: {current_temp}")
                 
                 new_exag = get_float_input("exaggeration", current_exag, 0.0, 3.0)
-                new_cfg = get_float_input("CFG weight", current_cfg, 0.0, 2.0)
+                new_cfg = get_float_input("CFG scale", current_cfg, TTS_PARAM_MIN_CFG_SCALE, TTS_PARAM_MAX_CFG_SCALE)
                 new_temp = get_float_input("temperature", current_temp, 0.0, 2.0)
                 
                 # Update chunk TTS parameters
@@ -271,14 +280,21 @@ def run_chunk_repair_tool():
                     chunk['tts_params'] = {}
                 
                 chunk['tts_params']['exaggeration'] = new_exag
-                chunk['tts_params']['cfg_weight'] = new_cfg
+                chunk['tts_params']['cfg_scale'] = new_cfg
                 chunk['tts_params']['temperature'] = new_temp
                 
-                save_chunks(str(chunk_path), chunks)
-                print(f"✅ TTS parameters updated: exag={new_exag}, cfg={new_cfg}, temp={new_temp}")
+                save_repair_chunks(str(chunk_path), chunks, metadata)
+                print(f"✅ TTS parameters updated: exag={new_exag}, cfg_scale={new_cfg}, temp={new_temp}")
             elif choice == "5":
                 print(f"\n🎤 Resynthesizing chunk {index+1:05d}...")
-                revised_path = synthesize_chunk(chunk, index, book_name, book_audio_dir, revision=True)
+                revised_path = synthesize_chunk(
+                    chunk,
+                    index,
+                    book_name,
+                    book_audio_dir,
+                    revision=True,
+                    chunks_json_path=str(chunk_path),
+                )
                 if revised_path:
                     print(f"✅ Chunk resynthesized: {revised_path}")
                 else:

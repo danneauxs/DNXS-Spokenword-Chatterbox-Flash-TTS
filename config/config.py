@@ -165,17 +165,8 @@ M4B_SAMPLE_RATE = 24000
 # TTS MODEL PARAMETERS (DEFAULTS)
 # ============================================================================
 DEFAULT_EXAGGERATION = 0.5
-DEFAULT_CFG_WEIGHT = 0.5
 DEFAULT_TEMPERATURE = 0.3
 DEFAULT_SEED = 0 # Random seed for generation. 0 means random.
-
-# Advanced Sampling Parameters (Min_P Sampler Support)
-# NOTE: these apply to the old autoregressive model only - Chatterbox-Flash
-# does not use them. Kept for now, not yet removed (config cleanup pending).
-DEFAULT_MIN_P = 0.00                   # Min probability threshold (0.0 disables)
-DEFAULT_TOP_P = 1.0                    # Top-p sampling (1.0 disables)
-DEFAULT_TOP_K = 1000                   # Top-k sampling cap on speech tokens (0 disables)
-DEFAULT_REPETITION_PENALTY = 1.2      # Repetition penalty (1.0 = no penalty)
 
 # Chatterbox-Flash's own generation parameters (block-diffusion decoder)
 DEFAULT_FLASH_NUM_STEPS = 10           # Max denoising steps per block (K)
@@ -199,25 +190,20 @@ TTS_PARAM_MAX_TIME_SHIFT_TAU = 1.0
 # --- Base TTS Parameters (used as the starting point) ---
 # These are the same as the main defaults, but listed here for clarity.
 BASE_EXAGGERATION = DEFAULT_EXAGGERATION  # Default: 1.0
-BASE_CFG_WEIGHT = DEFAULT_CFG_WEIGHT      # Default: 0.7
+BASE_CFG_SCALE = DEFAULT_FLASH_CFG_SCALE
 BASE_TEMPERATURE = DEFAULT_TEMPERATURE    # Default: 0.7
 
 # --- Sensitivity ---
 # How much VADER's compound score affects each parameter.
 # Higher values mean more dramatic changes based on sentiment.
 VADER_EXAGGERATION_SENSITIVITY = 0.33
-VADER_CFG_WEIGHT_SENSITIVITY = 0.32
+VADER_CFG_SCALE_SENSITIVITY = 0.32
 VADER_TEMPERATURE_SENSITIVITY = 0.3
-VADER_MIN_P_SENSITIVITY = 0.01         # Reduced from 0.02 to prevent sampling issues
-VADER_REPETITION_PENALTY_SENSITIVITY = 0.05  # Reduced from 0.1 to be more conservative
 
 # --- Min/Max Clamps ---
 # Hard limits to prevent extreme, undesirable audio artifacts.
 TTS_PARAM_MIN_EXAGGERATION = 0.1
 TTS_PARAM_MAX_EXAGGERATION = 0.7500000000000001
-TTS_PARAM_MIN_CFG_WEIGHT = 0.15
-TTS_PARAM_MAX_CFG_WEIGHT = 1.0
-
 TTS_PARAM_MIN_TEMPERATURE = 0.0
 TTS_PARAM_MAX_TEMPERATURE = 1.5
 
@@ -253,7 +239,7 @@ PUNCTUATION_PAUSE_MAPPING = {
 TTS_PRESETS = {
     "Narration": {
         "exaggeration": 0.55,
-        "cfg_weight": 0.5,
+        "cfg_scale": 1.0,
         "temperature": 0.85,
         "min_p": 0.05,
         "top_p": 1.0,
@@ -266,7 +252,7 @@ TTS_PRESETS = {
     },
     "Expressive Mod": {
         "exaggeration": 0.50,
-        "cfg_weight": 0.4,
+        "cfg_scale": 0.8,
         "temperature": 0.60,
         "min_p": 0.05,
         "top_p": 1.0,
@@ -279,7 +265,7 @@ TTS_PRESETS = {
     },
     "Expressive": {
         "exaggeration": 0.65,
-        "cfg_weight": 0.8,
+        "cfg_scale": 1.6,
         "temperature": 0.95,
         "min_p": 0.05,
         "top_p": 1.0,
@@ -292,7 +278,7 @@ TTS_PRESETS = {
     },
     "Exposition": {
         "exaggeration": 0.4,
-        "cfg_weight": 0.3,
+        "cfg_scale": 0.6,
         "temperature": 0.55,
         "min_p": 0.05,
         "top_p": 1.0,
@@ -307,7 +293,7 @@ TTS_PRESETS = {
 # ============================================================================
 # BATCH-BINNING SETTINGS FOR VADER PARAMETER OPTIMIZATION
 # ============================================================================
-# Enable batch-binning: rounds VADER parameters (exaggeration, cfg_weight, temperature)
+# Enable batch-binning: rounds VADER parameters (exaggeration, cfg_scale, temperature)
 # to nearest 0.05 for better microbatching when VADER is enabled
 ENABLE_BATCH_BINNING = False          # Enable automatic parameter rounding for batch optimization (NEW) - Testing actual impact
 BATCH_BIN_PRECISION = 0.05           # Rounding precision (0.05 = round to nearest 0.05)
@@ -358,7 +344,7 @@ OUTPUT_VALIDATION_THRESHOLD = 0.6    # Minimum F1 score for output validation (r
 # --- Parameter Adjustment for Regeneration ---
 REGEN_TEMPERATURE_ADJUSTMENT = 0.1   # How much to adjust temperature per retry (increased for visibility)
 REGEN_EXAGGERATION_ADJUSTMENT = 0.15 # How much to adjust exaggeration per retry (increased for visibility)
-REGEN_CFG_ADJUSTMENT = 0.1           # How much to adjust cfg_weight per retry (increased for visibility)
+REGEN_CFG_ADJUSTMENT = 0.1           # How much to adjust cfg_scale per retry (increased for visibility)
 
 # ============================================================================
 # TORCH.COMPILE OPTIMIZATION SETTINGS

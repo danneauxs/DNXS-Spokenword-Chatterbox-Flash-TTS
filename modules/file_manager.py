@@ -604,7 +604,7 @@ def apply_batch_binning(chunks_info):
     """Round VADER parameters to nearest bin for better microbatching"""
     print(f"📦 BATCH-BINNING: Processing {len(chunks_info)} chunks with precision {BATCH_BIN_PRECISION}")
     binned_chunks = []
-    param_changes = {'exaggeration': [], 'cfg_weight': [], 'temperature': []}
+    param_changes = {'exaggeration': [], 'cfg_scale': [], 'temperature': []}
     
     for chunk in chunks_info:
         # Create a copy of the chunk to avoid modifying the original
@@ -615,7 +615,7 @@ def apply_batch_binning(chunks_info):
             tts_params = binned_chunk['tts_params'].copy()
             
             # Round key VADER-influenced parameters to nearest BATCH_BIN_PRECISION
-            for param in ['exaggeration', 'cfg_weight', 'temperature']:
+            for param in ['exaggeration', 'cfg_scale', 'temperature']:
                 if param in tts_params:
                     original_value = tts_params[param]
                     # Round to nearest BATCH_BIN_PRECISION (e.g., 0.05)
@@ -651,13 +651,13 @@ def apply_batch_binning(chunks_info):
         for chunk in chunks_info:
             if 'tts_params' in chunk and chunk['tts_params']:
                 tp = chunk['tts_params']
-                orig_combo = (tp.get('exaggeration', 0.5), tp.get('cfg_weight', 0.5), tp.get('temperature', 0.85))
+                orig_combo = (tp.get('exaggeration', 0.5), tp.get('cfg_scale', 1.0), tp.get('temperature', 0.85))
                 original_combinations.add(orig_combo)
         
         for chunk in binned_chunks:
             if 'tts_params' in chunk and chunk['tts_params']:
                 tp = chunk['tts_params']
-                binned_combo = (tp.get('exaggeration', 0.5), tp.get('cfg_weight', 0.5), tp.get('temperature', 0.85))
+                binned_combo = (tp.get('exaggeration', 0.5), tp.get('cfg_scale', 1.0), tp.get('temperature', 0.85))
                 binned_combinations.add(binned_combo)
         
         print(f"📦 MICRO-BATCH IMPROVEMENT: {len(original_combinations)}→{len(binned_combinations)} parameter combinations")

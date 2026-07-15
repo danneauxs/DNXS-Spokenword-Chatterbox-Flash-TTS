@@ -1,22 +1,27 @@
 {
   "project": "TurboFlash Windows Installer",
   "last_session": "2026-07-14",
-  "current_focus": "Completed Windows installer rebuild for Chatterbox Flash on RTX 5070 systems",
+  "current_focus": "Validated Flash parameter and JSON metadata schema changes; Windows artifact rebuild pending wine64",
   "progress": {
-    "description": "Launcher uses uv with Torch 2.7.1 overrides and chatterbox-flash. src/ staging was removed and Inno Setup rebuilt the installer successfully."
+    "description": "Implemented per-chunk Flash VADER parameters, fixed run-level metadata, metadata-preserving repair/replay paths, and CFG scale naming across 14 Python files. Baseline commit 32d2a30 exists; implementation changes remain uncommitted. Syntax, imports, metadata merge, legacy CFG compatibility, and docstring checks pass."
   },
   "decisions": {
     "cpu_support": "Not a target; preserve existing no-GPU branch without additional CPU handling.",
     "flashinfer": "Do not install flashinfer; retain GUI option and existing tts_engine code unchanged.",
     "gpu_detection": "Use existing nvidia-smi presence check only; no GPU-generation tiering.",
-    "cuda_target": "Use torch 2.7.1 and torchaudio 2.7.1 with cu128 index when NVIDIA GPU is detected."
+    "cuda_target": "Use torch 2.7.1 and torchaudio 2.7.1 with cu128 index when NVIDIA GPU is detected.",
+    "flash_json_schema": "Store num_steps, time_shift_tau, and backend in first _metadata tts_params; store VADER-adjusted exaggeration, cfg_scale, and temperature per chunk.",
+    "microbatching": "Keep ENABLE_MICRO_BATCHING, ENABLE_VADER_MICRO_BATCHING, and ENABLE_BATCH_BINNING disabled.",
+    "legacy_cfg": "Read cfg_weight only as compatibility input, normalize it to cfg_scale, and never write cfg_weight."
   },
   "next_tasks": [
-    "Distribute build/windows/output/ChatterboxTTS-Setup-1.0.0.exe",
+    "Run build/windows/build_linux.sh on host with wine64 available",
+    "Review and commit uncommitted implementation changes when commit is requested",
     "Optionally validate first launch on Windows RTX 5070 hardware"
   ],
   "open_questions": [
+    "Windows installer rebuild unavailable on current host because wine64 is missing.",
     "Windows RTX 5070 runtime smoke test unavailable because target hardware is not available."
   ],
-  "notes": "Do not modify Linux CUDA lookup in modules/tts_engine.py or GUI flashinfer dropdown."
+  "notes": "Do not modify Linux CUDA lookup in modules/tts_engine.py or GUI flashinfer dropdown. Current source changes are uncommitted; existing build/windows/output artifact was not rebuilt after them."
 }

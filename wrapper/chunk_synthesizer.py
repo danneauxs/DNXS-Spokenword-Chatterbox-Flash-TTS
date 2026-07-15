@@ -8,6 +8,7 @@ from modules.tts_engine import load_optimized_model
 from modules.file_manager import ensure_voice_sample_compatibility, list_voice_samples
 from modules.audio_processor import apply_smart_fade_memory, smart_audio_validation_memory, process_audio_with_trimming_and_silence
 from config.config import *
+from wrapper.chunk_loader import load_metadata, merge_tts_params
 
 def get_original_voice_from_log(book_name):
     """Extract original voice name from run log"""
@@ -70,12 +71,23 @@ def find_voice_file_by_name(voice_name):
     
     return None
 
-def get_tts_params_for_chunk(chunk):
-    """Extract TTS parameters from chunk data or prompt user"""
+def get_tts_params_for_chunk(chunk, metadata_params=None):
+    """Extract canonical Flash parameters from metadata, chunk data, or prompts."""
     # Check if chunk has TTS params stored
-    if 'tts_params' in chunk:
-        tts_params = chunk['tts_params']
-        print(f"📊 Using stored TTS params: exag={tts_params.get('exaggeration', 1.0)}, cfg={tts_params.get('cfg_weight', 0.7)}, temp={tts_params.get('temperature', 0.7)}")
+    if 'tts_params' in chunk or metadata_params:
+        tts_params = merge_tts_params(
+            chunk,
+            metadata_params=metadata_params,
+            defaults={
+                'exaggeration': DEFAULT_EXAGGERATION,
+                'temperature': DEFAULT_TEMPERATURE,
+                'num_steps': DEFAULT_FLASH_NUM_STEPS,
+                'cfg_scale': DEFAULT_FLASH_CFG_SCALE,
+                'time_shift_tau': DEFAULT_FLASH_TIME_SHIFT_TAU,
+                'backend': 'torch',
+            },
+        )
+        print(f"📊 Using stored TTS params: exag={tts_params.get('exaggeration', DEFAULT_EXAGGERATION)}, cfg={tts_params.get('cfg_scale', DEFAULT_FLASH_CFG_SCALE)}, temp={tts_params.get('temperature', DEFAULT_TEMPERATURE)}")
         return tts_params
     
     # Prompt user for TTS parameters
@@ -99,12 +111,12 @@ def get_tts_params_for_chunk(chunk):
                 print(f"❌ Invalid input. Please enter a valid number.")
     
     exaggeration = get_float_input("Exaggeration", DEFAULT_EXAGGERATION)
-    cfg_weight = get_float_input("CFG Weight", DEFAULT_CFG_WEIGHT)
+    cfg_scale = get_float_input("CFG Scale", DEFAULT_FLASH_CFG_SCALE)
     temperature = get_float_input("Temperature", DEFAULT_TEMPERATURE)
     
     return {
         'exaggeration': exaggeration,
-        'cfg_weight': cfg_weight,
+        'cfg_scale': cfg_scale,
         'temperature': temperature
     }
 
@@ -155,8 +167,12 @@ def synthesize_chunk(chunk, index, book_name, audio_dir, revision=False, chunks_
         print(f"🎤 Using voice: {voice_name} (method: {detection_method})")
         compatible_voice = ensure_voice_sample_compatibility(voice_path)
         
-        # Get TTS parameters for this chunk
-        tts_params = get_tts_params_for_chunk(chunk)
+        # Get TTS parameters for this chunk and preserve metadata settings.
+        metadata_params = {}
+        if chunks_json_path:
+            metadata = load_metadata(chunks_json_path)
+            metadata_params = metadata.get('tts_params', {}) if metadata else {}
+        tts_params = get_tts_params_for_chunk(chunk, metadata_params)
         
         # Pre-warm model to eliminate first chunk quality variations
         from modules.tts_engine import prewarm_model_with_voice
@@ -169,14 +185,19 @@ def synthesize_chunk(chunk, index, book_name, audio_dir, revision=False, chunks_
             return None
             
         print(f"🎤 Synthesizing: {chunk_text[:50]}...")
-        print(f"📊 TTS params: exag={tts_params['exaggeration']}, cfg={tts_params['cfg_weight']}, temp={tts_params['temperature']}")
+        print(f"📊 TTS params: exag={tts_params['exaggeration']}, cfg={tts_params['cfg_scale']}, temp={tts_params['temperature']}")
         
         # Generate audio with specified parameters
+        flash_supported_params = {
+            "temperature", "num_steps", "cfg_scale", "time_shift_tau",
+            "exaggeration", "audio_prompt_path", "backend",
+        }
+        filtered_params = {k: v for k, v in tts_params.items() if k in flash_supported_params}
+        filtered_params.setdefault('num_steps', DEFAULT_FLASH_NUM_STEPS)
+        filtered_params.setdefault('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU)
+        filtered_params.setdefault('backend', 'torch')
         with torch.no_grad():
-            wav = model.generate(chunk_text, 
-                               exaggeration=tts_params['exaggeration'],
-                               cfg_weight=tts_params['cfg_weight'], 
-                               temperature=tts_params['temperature']).detach().cpu()
+            wav = model.generate(chunk_text, **filtered_params).detach().cpu()
         
         if wav.dim() == 1:
             wav = wav.unsqueeze(0)

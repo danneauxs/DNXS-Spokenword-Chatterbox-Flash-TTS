@@ -25,9 +25,12 @@ _ASR_HEADLESS = _PROJECT_ROOT / 'ASR' / 'asr_validator_headless.py'
 
 sys.path.insert(0, str(Path(__file__).parent))
 from config.config import (REGEN_TEMPERATURE_ADJUSTMENT, 
-                                REGEN_EXAGGERATION_ADJUSTMENT,
-                                REGEN_CFG_ADJUSTMENT,
-                                REGEN_MAX_ATTEMPTS)
+                                 REGEN_EXAGGERATION_ADJUSTMENT,
+                                 REGEN_CFG_ADJUSTMENT,
+                                 REGEN_MAX_ATTEMPTS,
+                                 TTS_PARAM_MIN_CFG_SCALE,
+                                 DEFAULT_FLASH_NUM_STEPS,
+                                 DEFAULT_FLASH_TIME_SHIFT_TAU)
 
 import torch
 import json
@@ -48,11 +51,15 @@ def regenerate_single_chunk(chunk_text: str, tts_params: dict, tts_model, voice_
             elif hasattr(tts_model, 'load_voice'):
                 tts_model.load_voice(str(voice_path))
 
-        # Filter to only Turbo-supported parameters
-        turbo_supported_params = {"temperature", "top_p", "repetition_penalty", "audio_prompt_path", "top_k"}
-        filtered_params = {k: v for k, v in tts_params.items() if k in turbo_supported_params}
-        from config.config import DEFAULT_TOP_K
-        filtered_params.setdefault('top_k', DEFAULT_TOP_K)
+        # Filter to Flash-supported parameters and preserve run-level settings.
+        flash_supported_params = {
+            "temperature", "num_steps", "cfg_scale", "time_shift_tau",
+            "exaggeration", "audio_prompt_path", "backend",
+        }
+        filtered_params = {k: v for k, v in tts_params.items() if k in flash_supported_params}
+        filtered_params.setdefault('num_steps', DEFAULT_FLASH_NUM_STEPS)
+        filtered_params.setdefault('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU)
+        filtered_params.setdefault('backend', 'torch')
 
         # Generate audio with filtered parameters
         with torch.no_grad():
@@ -235,10 +242,10 @@ def regenerate_with_best_selection(
                 tts_params.get('temperature', 0.8) - (REGEN_TEMPERATURE_ADJUSTMENT * reduction))
             adjusted_params['exaggeration'] = builtins.max(0.0,
                 tts_params.get('exaggeration', 0.5) - (REGEN_EXAGGERATION_ADJUSTMENT * reduction))
-            adjusted_params['cfg_weight'] = builtins.max(0.0,
-                tts_params.get('cfg_weight', 0.5) - (REGEN_CFG_ADJUSTMENT * reduction))
+            adjusted_params['cfg_scale'] = builtins.max(TTS_PARAM_MIN_CFG_SCALE,
+                tts_params.get('cfg_scale', 1.0) - (REGEN_CFG_ADJUSTMENT * reduction))
             
-            print(f"   Attempt {attempt_num}: temp={adjusted_params['temperature']:.2f}, exag={adjusted_params['exaggeration']:.2f}, cfg={adjusted_params['cfg_weight']:.2f}")
+            print(f"   Attempt {attempt_num}: temp={adjusted_params['temperature']:.2f}, exag={adjusted_params['exaggeration']:.2f}, cfg={adjusted_params['cfg_scale']:.2f}")
             
             # Generate audio
             attempt_path = failed_dir / f"{chunk_id}_attempt{attempt_num}.wav"

@@ -743,6 +743,16 @@ class ChatterboxMainWindow(QMainWindow):
         # LEFT COLUMN: TTS Parameters - All in vertical list
         tts_params_layout = QFormLayout()
 
+        # Exaggeration - emotional intensity for Chatterbox Flash
+        self.exaggeration_spin = NoScrollDoubleSpinBox()
+        self._attach_spin_reset(self.exaggeration_spin, 'DEFAULT_EXAGGERATION')
+        self.exaggeration_spin.setRange(TTS_PARAM_MIN_EXAGGERATION, TTS_PARAM_MAX_EXAGGERATION)
+        self.exaggeration_spin.setSingleStep(0.05)
+        self.exaggeration_spin.setValue(DEFAULT_EXAGGERATION)
+        self.exaggeration_spin.setDecimals(2)
+        self.exaggeration_spin.setMaximumWidth(100)
+        tts_params_layout.addRow("Exaggeration:", self.exaggeration_spin)
+
         # Temperature - Tab 1 uses config limits
         self.temperature_spin = NoScrollDoubleSpinBox()
         self._attach_spin_reset(self.temperature_spin, 'DEFAULT_TEMPERATURE')
@@ -1105,6 +1115,8 @@ class ChatterboxMainWindow(QMainWindow):
             'SILENCE_EXCLAMATION': 'silence_exclamation',
             'ENABLE_CHUNK_END_SILENCE': 'enable_chunk_silence',
             'CHUNK_END_SILENCE_MS': 'chunk_silence_duration',
+            'VADER_EXAGGERATION_SENSITIVITY': 'vader_exag_sensitivity',
+            'VADER_CFG_SCALE_SENSITIVITY': 'vader_cfg_sensitivity',
             'VADER_TEMPERATURE_SENSITIVITY': 'vader_temp_sensitivity',
             'ENABLE_PUNCTUATION_PAUSES': 'enable_punctuation_pauses',
         }
@@ -1193,6 +1205,7 @@ class ChatterboxMainWindow(QMainWindow):
                 (self.quality_threshold_spin, 'QUALITY_THRESHOLD'),
                 (self.spectral_threshold_spin, 'SPECTRAL_ANOMALY_THRESHOLD'),
                 (self.output_threshold_spin, 'OUTPUT_VALIDATION_THRESHOLD'),
+                (self.exaggeration_spin, 'DEFAULT_EXAGGERATION'),
                 (self.temperature_spin, 'DEFAULT_TEMPERATURE'),
                 (self.num_steps_spin, 'DEFAULT_FLASH_NUM_STEPS'),
                 (self.cfg_scale_spin, 'DEFAULT_FLASH_CFG_SCALE'),
@@ -1411,21 +1424,21 @@ class ChatterboxMainWindow(QMainWindow):
         limits_desc.setWordWrap(True)
         limits_layout.addRow(limits_desc)
 
-        # CFG Weight limits - Config tab uses software max (1.0)
+        # CFG Scale limits - Flash uses a 0.0-3.0 guidance range
         self.cfg_min_spin = NoScrollDoubleSpinBox()
-        self._attach_spin_reset(self.cfg_min_spin, 'TTS_PARAM_MIN_CFG_WEIGHT')
-        self.cfg_min_spin.setRange(0.0, 1.0)  # Software max = 1.0
+        self._attach_spin_reset(self.cfg_min_spin, 'TTS_PARAM_MIN_CFG_SCALE')
+        self.cfg_min_spin.setRange(0.0, 3.0)
         self.cfg_min_spin.setSingleStep(0.05)
         self.cfg_min_spin.setDecimals(2)
-        self.cfg_min_spin.setValue(TTS_PARAM_MIN_CFG_WEIGHT)
+        self.cfg_min_spin.setValue(TTS_PARAM_MIN_CFG_SCALE)
         self.cfg_min_spin.setMaximumWidth(60)
 
         self.cfg_max_spin = NoScrollDoubleSpinBox()
-        self._attach_spin_reset(self.cfg_max_spin, 'TTS_PARAM_MAX_CFG_WEIGHT')
-        self.cfg_max_spin.setRange(0.0, 1.0)  # Software max = 1.0
+        self._attach_spin_reset(self.cfg_max_spin, 'TTS_PARAM_MAX_CFG_SCALE')
+        self.cfg_max_spin.setRange(0.0, 3.0)
         self.cfg_max_spin.setSingleStep(0.05)
         self.cfg_max_spin.setDecimals(2)
-        self.cfg_max_spin.setValue(TTS_PARAM_MAX_CFG_WEIGHT)
+        self.cfg_max_spin.setValue(TTS_PARAM_MAX_CFG_SCALE)
         self.cfg_max_spin.setMaximumWidth(60)
 
         # Temperature limits - Config tab uses software max (5.0)
@@ -1476,7 +1489,7 @@ class ChatterboxMainWindow(QMainWindow):
         tts_defaults_layout = QFormLayout(tts_defaults_group)
 
         # Add descriptive text
-        tts_defaults_desc = QLabel("Exaq: 0.50  CFG: 0.50  Temp: 0.80")
+        tts_defaults_desc = QLabel("Exaq: 0.50  CFG Scale: 1.00  Temp: 0.30")
         tts_defaults_desc.setStyleSheet("font-size: 10px; color: #666; margin: 5px;")
         tts_defaults_layout.addRow(tts_defaults_desc)
 
@@ -1490,11 +1503,11 @@ class ChatterboxMainWindow(QMainWindow):
         self.default_exag_spin.setMaximumWidth(60)
 
         self.default_cfg_spin = NoScrollDoubleSpinBox()
-        self._attach_spin_reset(self.default_cfg_spin, 'DEFAULT_CFG_WEIGHT')
-        self.default_cfg_spin.setRange(0.0, 1.0)  # Software max = 1.0
+        self._attach_spin_reset(self.default_cfg_spin, 'DEFAULT_FLASH_CFG_SCALE')
+        self.default_cfg_spin.setRange(TTS_PARAM_MIN_CFG_SCALE, TTS_PARAM_MAX_CFG_SCALE)
         self.default_cfg_spin.setSingleStep(0.05)
         self.default_cfg_spin.setDecimals(2)
-        self.default_cfg_spin.setValue(DEFAULT_CFG_WEIGHT)
+        self.default_cfg_spin.setValue(DEFAULT_FLASH_CFG_SCALE)
         self.default_cfg_spin.setMaximumWidth(60)
 
         self.default_temp_spin = NoScrollDoubleSpinBox()
@@ -1522,14 +1535,30 @@ class ChatterboxMainWindow(QMainWindow):
         vader_layout = QFormLayout(vader_group)
 
         # Add descriptive text
-        vader_desc = QLabel("Exaq Sens: 0.30  CFG Sens: 0.30  Temp Sens: 0.30\n\nSet defaults for TTS params Exaggeration, CFG, Temperature. Use Tab #1 to adjust for\na single use.\nVader Sensitivity: Sets how much vader adjusts the above params based on Vader weight.")
+        vader_desc = QLabel("Exaq Sens: 0.33  CFG Scale Sens: 0.32  Temp Sens: 0.30\n\nSet defaults for TTS params Exaggeration, CFG Scale, Temperature. Use Tab #1 to adjust for\na single use.\nVader Sensitivity: Sets how much VADER adjusts the above params based on sentiment.")
         vader_desc.setStyleSheet("font-size: 10px; color: #666; margin: 5px;")
         vader_desc.setWordWrap(True)
         vader_layout.addRow(vader_desc)
 
 
 
-        # VADER Sensitivity
+        # VADER sensitivity controls
+        self.vader_exag_sens_spin = NoScrollDoubleSpinBox()
+        self._attach_spin_reset(self.vader_exag_sens_spin, 'VADER_EXAGGERATION_SENSITIVITY')
+        self.vader_exag_sens_spin.setRange(0.0, 1.0)
+        self.vader_exag_sens_spin.setSingleStep(0.01)
+        self.vader_exag_sens_spin.setDecimals(2)
+        self.vader_exag_sens_spin.setValue(VADER_EXAGGERATION_SENSITIVITY)
+        self.vader_exag_sens_spin.setMaximumWidth(60)
+
+        self.vader_cfg_sens_spin = NoScrollDoubleSpinBox()
+        self._attach_spin_reset(self.vader_cfg_sens_spin, 'VADER_CFG_SCALE_SENSITIVITY')
+        self.vader_cfg_sens_spin.setRange(0.0, 3.0)
+        self.vader_cfg_sens_spin.setSingleStep(0.01)
+        self.vader_cfg_sens_spin.setDecimals(2)
+        self.vader_cfg_sens_spin.setValue(VADER_CFG_SCALE_SENSITIVITY)
+        self.vader_cfg_sens_spin.setMaximumWidth(60)
+
         self.vader_temp_sens_spin = NoScrollDoubleSpinBox()
         self._attach_spin_reset(self.vader_temp_sens_spin, 'VADER_TEMPERATURE_SENSITIVITY')
         self.vader_temp_sens_spin.setRange(0.0, 1.0)
@@ -1540,6 +1569,10 @@ class ChatterboxMainWindow(QMainWindow):
 
         # Compact VADER sensitivity row
         vader_sens_row = QHBoxLayout()
+        vader_sens_row.addWidget(QLabel("Exaq Sens:"))
+        vader_sens_row.addWidget(self.vader_exag_sens_spin)
+        vader_sens_row.addWidget(QLabel("CFG Sens:"))
+        vader_sens_row.addWidget(self.vader_cfg_sens_spin)
         vader_sens_row.addWidget(QLabel("Temp Sens:"))
         vader_sens_row.addWidget(self.vader_temp_sens_spin)
         vader_sens_row.addStretch()
@@ -2106,9 +2139,9 @@ class ChatterboxMainWindow(QMainWindow):
         tts_layout.addWidget(self.repair_exag_spin)
 
         # CFG parameter
-        cfg_label = QLabel("CFG:")
+        cfg_label = QLabel("CFG Scale:")
         self.repair_cfg_spin = NoScrollDoubleSpinBox()
-        self.repair_cfg_spin.setRange(0.0, 2.0)
+        self.repair_cfg_spin.setRange(TTS_PARAM_MIN_CFG_SCALE, TTS_PARAM_MAX_CFG_SCALE)
         self.repair_cfg_spin.setSingleStep(0.1)
         self.repair_cfg_spin.setDecimals(1)
         self.repair_cfg_spin.setMaximumWidth(80)
@@ -2189,6 +2222,7 @@ class ChatterboxMainWindow(QMainWindow):
         # Initialize repair tool state
         self.current_repair_chunks = None
         self.current_repair_chunk = None
+        self.current_repair_metadata = None
         self.current_repair_book_path = None
         self.current_repair_audio_dir = None
         self.current_repair_voice_name = None
@@ -2671,11 +2705,10 @@ class ChatterboxMainWindow(QMainWindow):
 
         # Collect TTS parameters
         tts_params = {
-            'exaggeration': DEFAULT_EXAGGERATION,  # Default (widget removed)
-            'cfg_weight': DEFAULT_CFG_WEIGHT,  # Default (widget removed)
+            'exaggeration': self.exaggeration_spin.value(),
             'temperature': self.temperature_spin.value(),
-            'num_steps': self.num_steps_spin.value(),
             'cfg_scale': self.cfg_scale_spin.value(),
+            'num_steps': self.num_steps_spin.value(),
             'time_shift_tau': self.time_shift_tau_spin.value(),
             'backend': self.backend_combo.currentText(),
             'use_vader': use_vader,
@@ -3187,11 +3220,10 @@ class ChatterboxMainWindow(QMainWindow):
         # Get TTS parameters from Main Tab (same as used in convert_audiobook)
         use_vader = self.vader_checkbox.isChecked()
         user_tts_params = {
-            'exaggeration': DEFAULT_EXAGGERATION,  # Default (widget removed)
-            'cfg_weight': DEFAULT_CFG_WEIGHT,  # Default (widget removed)
+            'exaggeration': self.exaggeration_spin.value(),
             'temperature': self.temperature_spin.value(),
-            'num_steps': self.num_steps_spin.value(),
             'cfg_scale': self.cfg_scale_spin.value(),
+            'num_steps': self.num_steps_spin.value(),
             'time_shift_tau': self.time_shift_tau_spin.value(),
             'backend': self.backend_combo.currentText(),
             'use_vader': use_vader
@@ -3324,14 +3356,16 @@ class ChatterboxMainWindow(QMainWindow):
             # Clear display when placeholder is selected
             self.repair_results_list.clear()
             self.current_repair_chunk = None
+            self.current_repair_metadata = None
             self.update_repair_chunk_display()
             return
 
         book_name, json_path, source = current_data
 
         try:
-            from wrapper.chunk_loader import load_chunks
+            from wrapper.chunk_loader import load_chunks, load_metadata
             self.current_repair_chunks = load_chunks(str(json_path))
+            self.current_repair_metadata = load_metadata(str(json_path))
             self.current_repair_book_path = json_path
 
             # Ensure chunks have index fields (0-based indexing)
@@ -3546,10 +3580,12 @@ class ChatterboxMainWindow(QMainWindow):
 
         # Update info display
         sentiment_compound = chunk.get('sentiment_compound', chunk.get('sentiment_score', 'N/A'))
-        tts_params = chunk.get('tts_params', {})
+        from wrapper.chunk_loader import merge_tts_params
+        metadata_params = (self.current_repair_metadata or {}).get('tts_params', {})
+        tts_params = merge_tts_params(chunk, metadata_params=metadata_params)
 
         info_text = f"""Index: {chunk['index']} | Boundary: {chunk['boundary_type']} | Words: {chunk.get('word_count', 'N/A')}
-Sentiment: {sentiment_compound} | TTS: exag={tts_params.get('exaggeration', 'N/A')}, cfg={tts_params.get('cfg_weight', 'N/A')}, temp={tts_params.get('temperature', 'N/A')}
+Sentiment: {sentiment_compound} | TTS: exag={tts_params.get('exaggeration', 'N/A')}, cfg={tts_params.get('cfg_scale', 'N/A')}, temp={tts_params.get('temperature', 'N/A')}
 Audio: chunk_{chunk['index']+1:05d}.wav"""
 
         self.repair_chunk_info.setText(info_text)
@@ -3563,8 +3599,8 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
 
         # Update TTS parameters
         self.repair_exag_spin.setValue(tts_params.get('exaggeration', 1.0))
-        self.repair_cfg_spin.setValue(tts_params.get('cfg_weight', 0.7))
-        self.repair_temp_spin.setValue(tts_params.get('temperature', 0.7))
+        self.repair_cfg_spin.setValue(tts_params.get('cfg_scale', DEFAULT_FLASH_CFG_SCALE))
+        self.repair_temp_spin.setValue(tts_params.get('temperature', DEFAULT_TEMPERATURE))
 
     def save_chunk_changes(self):
         """Save changes to the current chunk"""
@@ -3602,22 +3638,11 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
                     elif field == 'boundary_type':
                         updated_chunk[field] = self.repair_boundary_combo.currentText()
                     elif field == 'tts_params':
-                        # Standard TTS params order
-                        tts_order = ['exaggeration', 'cfg_weight', 'temperature', 'min_p', 'top_p', 'top_k', 'repetition_penalty']
-                        updated_tts_params = OrderedDict()
-                        original_tts = chunk.get('tts_params', {})
-
-                        # Add TTS params in standard order
-                        for tts_field in tts_order:
-                            if tts_field in original_tts:
-                                if tts_field == 'exaggeration':
-                                    updated_tts_params[tts_field] = round(self.repair_exag_spin.value(), 2)
-                                elif tts_field == 'cfg_weight':
-                                    updated_tts_params[tts_field] = round(self.repair_cfg_spin.value(), 2)
-                                elif tts_field == 'temperature':
-                                    updated_tts_params[tts_field] = round(self.repair_temp_spin.value(), 2)
-                                else:
-                                    updated_tts_params[tts_field] = original_tts[tts_field]
+                        from wrapper.chunk_loader import merge_tts_params
+                        updated_tts_params = OrderedDict(merge_tts_params(chunk))
+                        updated_tts_params['exaggeration'] = round(self.repair_exag_spin.value(), 2)
+                        updated_tts_params['cfg_scale'] = round(self.repair_cfg_spin.value(), 2)
+                        updated_tts_params['temperature'] = round(self.repair_temp_spin.value(), 2)
 
                         updated_chunk[field] = updated_tts_params
                     else:
@@ -3642,14 +3667,17 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
             self.log_output(f"💾 Saving changes to: {json_path}")
             self.log_output(f"💾 Updated chunk {updated_chunk['index'] + 1:05d}: text='{updated_chunk['text'][:50]}...'")
             self.log_output(f"💾 Boundary: {updated_chunk['boundary_type']}, Sentiment: {updated_chunk['sentiment_compound']}")
-            self.log_output(f"💾 TTS Params: exag={updated_chunk['tts_params']['exaggeration']}, cfg={updated_chunk['tts_params']['cfg_weight']}, temp={updated_chunk['tts_params']['temperature']}")
+            self.log_output(f"💾 TTS Params: exag={updated_chunk['tts_params']['exaggeration']}, cfg={updated_chunk['tts_params']['cfg_scale']}, temp={updated_chunk['tts_params']['temperature']}")
 
             # Debug: Show what we're actually saving
             actual_chunk_in_list = self.current_repair_chunks[chunk_index]
             self.log_output(f"🔍 DEBUG: Chunk in list at index {chunk_index}: text='{actual_chunk_in_list['text'][:50]}...'")
             self.log_output(f"🔍 DEBUG: Are they the same object? {updated_chunk is actual_chunk_in_list}")
 
-            save_chunks(json_path, self.current_repair_chunks)
+            payload = list(self.current_repair_chunks)
+            if self.current_repair_metadata:
+                payload.insert(0, self.current_repair_metadata)
+            save_chunks(json_path, payload)
 
             # Verify the save by checking file modification time and re-reading the file
             import os
@@ -3746,12 +3774,17 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
             if 'tts_params' not in updated_chunk:
                 updated_chunk['tts_params'] = {}
 
+            from wrapper.chunk_loader import merge_tts_params
+            updated_chunk['tts_params'] = merge_tts_params(
+                updated_chunk,
+                metadata_params=(self.current_repair_metadata or {}).get('tts_params', {})
+            )
             updated_chunk['tts_params']['exaggeration'] = self.repair_exag_spin.value()
-            updated_chunk['tts_params']['cfg_weight'] = self.repair_cfg_spin.value()
+            updated_chunk['tts_params']['cfg_scale'] = self.repair_cfg_spin.value()
             updated_chunk['tts_params']['temperature'] = self.repair_temp_spin.value()
 
             self.log_output(f"🎤 Resynthesizing chunk {chunk_index+1:05d} with voice: {selected_voice_display}")
-            self.log_output(f"📊 Using TTS params: exag={updated_chunk['tts_params']['exaggeration']}, cfg={updated_chunk['tts_params']['cfg_weight']}, temp={updated_chunk['tts_params']['temperature']}")
+            self.log_output(f"📊 Using TTS params: exag={updated_chunk['tts_params']['exaggeration']}, cfg={updated_chunk['tts_params']['cfg_scale']}, temp={updated_chunk['tts_params']['temperature']}")
             self.log_output(f"📝 Text: {updated_chunk['text'][:50]}...")
 
             from wrapper.chunk_synthesizer import synthesize_chunk
@@ -4140,15 +4173,17 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
 
             # TTS parameter defaults
             self.default_exag_spin.setValue(getattr(config_mod, 'DEFAULT_EXAGGERATION', self.default_exag_spin.value()))
-            self.default_cfg_spin.setValue(getattr(config_mod, 'DEFAULT_CFG_WEIGHT', self.default_cfg_spin.value()))
+            self.default_cfg_spin.setValue(getattr(config_mod, 'DEFAULT_FLASH_CFG_SCALE', self.default_cfg_spin.value()))
             self.default_temp_spin.setValue(getattr(config_mod, 'DEFAULT_TEMPERATURE', self.default_temp_spin.value()))
 
             # VADER sensitivity
+            self.vader_exag_sens_spin.setValue(getattr(config_mod, 'VADER_EXAGGERATION_SENSITIVITY', self.vader_exag_sens_spin.value()))
+            self.vader_cfg_sens_spin.setValue(getattr(config_mod, 'VADER_CFG_SCALE_SENSITIVITY', self.vader_cfg_sens_spin.value()))
             self.vader_temp_sens_spin.setValue(getattr(config_mod, 'VADER_TEMPERATURE_SENSITIVITY', self.vader_temp_sens_spin.value()))
 
             # Parameter limits
-            self.cfg_min_spin.setValue(getattr(config_mod, 'TTS_PARAM_MIN_CFG_WEIGHT', self.cfg_min_spin.value()))
-            self.cfg_max_spin.setValue(getattr(config_mod, 'TTS_PARAM_MAX_CFG_WEIGHT', self.cfg_max_spin.value()))
+            self.cfg_min_spin.setValue(getattr(config_mod, 'TTS_PARAM_MIN_CFG_SCALE', self.cfg_min_spin.value()))
+            self.cfg_max_spin.setValue(getattr(config_mod, 'TTS_PARAM_MAX_CFG_SCALE', self.cfg_max_spin.value()))
             self.temp_min_spin.setValue(getattr(config_mod, 'TTS_PARAM_MIN_TEMPERATURE', self.temp_min_spin.value()))
             self.temp_max_spin.setValue(getattr(config_mod, 'TTS_PARAM_MAX_TEMPERATURE', self.temp_max_spin.value()))
 
@@ -4169,9 +4204,14 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
             'audio_trimming': self.audio_trimming_check.isChecked(),
             'speech_threshold': self.speech_threshold_spin.value(),
             'trimming_buffer': self.trimming_buffer_spin.value(),
+            'exaggeration': self.exaggeration_spin.value(),
+            'temperature': self.temperature_spin.value(),
+            'cfg_scale': self.cfg_scale_spin.value(),
             'default_exag': self.default_exag_spin.value(),
             'default_cfg': self.default_cfg_spin.value(),
             'default_temp': self.default_temp_spin.value(),
+            'vader_exag_sens': self.vader_exag_sens_spin.value(),
+            'vader_cfg_sens': self.vader_cfg_sens_spin.value(),
             'vader_temp_sens': self.vader_temp_sens_spin.value(),
             'cfg_min': self.cfg_min_spin.value(),
             'cfg_max': self.cfg_max_spin.value(),
@@ -4186,8 +4226,10 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
         config_widgets = [
             self.batch_size_spin, self.min_chunk_words_spin,
             self.max_chunk_words_spin, self.target_lufs_spin, self.speech_threshold_spin,
-            self.trimming_buffer_spin, self.default_exag_spin, self.default_cfg_spin,
-            self.default_temp_spin, self.vader_temp_sens_spin,
+            self.trimming_buffer_spin, self.exaggeration_spin, self.temperature_spin,
+            self.cfg_scale_spin, self.default_exag_spin, self.default_cfg_spin,
+            self.default_temp_spin, self.vader_exag_sens_spin, self.vader_cfg_sens_spin,
+            self.vader_temp_sens_spin,
             self.cfg_min_spin, self.cfg_max_spin, self.temp_min_spin, self.temp_max_spin
         ]
 
@@ -4271,14 +4313,16 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
                 'TARGET_PEAK_DB': self.target_peak_db_spin.value(),
                 'M4B_SAMPLE_RATE': int(self.m4b_sample_rate_combo.currentText()),
                 'ENABLE_AUDIO_TRIMMING': self.audio_trimming_check.isChecked(),
-                'SPEECH_ENDPOINT_THRESHOLD': self.speech_threshold_spin.value(),
-                'TRIMMING_BUFFER_MS': self.trimming_buffer_spin.value(),
-                'DEFAULT_EXAGGERATION': self.default_exag_spin.value(),
-                'DEFAULT_CFG_WEIGHT': self.default_cfg_spin.value(),
-                'DEFAULT_TEMPERATURE': self.default_temp_spin.value(),
-                'VADER_TEMPERATURE_SENSITIVITY': self.vader_temp_sens_spin.value(),
-                'TTS_PARAM_MIN_CFG_WEIGHT': self.cfg_min_spin.value(),
-                'TTS_PARAM_MAX_CFG_WEIGHT': self.cfg_max_spin.value(),
+                 'SPEECH_ENDPOINT_THRESHOLD': self.speech_threshold_spin.value(),
+                 'TRIMMING_BUFFER_MS': self.trimming_buffer_spin.value(),
+                 'DEFAULT_EXAGGERATION': self.default_exag_spin.value(),
+                 'DEFAULT_FLASH_CFG_SCALE': self.default_cfg_spin.value(),
+                 'DEFAULT_TEMPERATURE': self.default_temp_spin.value(),
+                 'VADER_EXAGGERATION_SENSITIVITY': self.vader_exag_sens_spin.value(),
+                 'VADER_CFG_SCALE_SENSITIVITY': self.vader_cfg_sens_spin.value(),
+                 'VADER_TEMPERATURE_SENSITIVITY': self.vader_temp_sens_spin.value(),
+                 'TTS_PARAM_MIN_CFG_SCALE': self.cfg_min_spin.value(),
+                 'TTS_PARAM_MAX_CFG_SCALE': self.cfg_max_spin.value(),
                 'TTS_PARAM_MIN_TEMPERATURE': self.temp_min_spin.value(),
                 'TTS_PARAM_MAX_TEMPERATURE': self.temp_max_spin.value(),
                 # Silence settings

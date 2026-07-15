@@ -267,21 +267,18 @@ def prompt_tts_params():
     
     print("\nBase TTS Parameters:")
     exaggeration = get_float_input("Exaggeration", DEFAULT_EXAGGERATION)
-    cfg_weight = get_float_input("CFG Weight", DEFAULT_CFG_WEIGHT)
+    cfg_scale = get_float_input("CFG Scale", DEFAULT_FLASH_CFG_SCALE)
     temperature = get_float_input("Temperature", DEFAULT_TEMPERATURE)
-    
-    print("\nAdvanced Sampling Parameters:")
-    min_p = get_float_input("Min-P (0.0 disables)", DEFAULT_MIN_P)
-    top_p = get_float_input("Top-P (1.0 disables)", DEFAULT_TOP_P)
-    repetition_penalty = get_float_input("Repetition Penalty", DEFAULT_REPETITION_PENALTY)
+    num_steps = get_float_input("Num Steps", DEFAULT_FLASH_NUM_STEPS)
+    time_shift_tau = get_float_input("Time-Shift Tau", DEFAULT_FLASH_TIME_SHIFT_TAU)
     
     return {
         'exaggeration': exaggeration,
-        'cfg_weight': cfg_weight,
+        'cfg_scale': cfg_scale,
         'temperature': temperature,
-        'min_p': min_p,
-        'top_p': top_p,
-        'repetition_penalty': repetition_penalty,
+        'num_steps': int(num_steps),
+        'time_shift_tau': time_shift_tau,
+        'backend': 'torch',
         'use_vader': use_vader,
         'asr_config': asr_config,
         'asr_threshold': asr_threshold

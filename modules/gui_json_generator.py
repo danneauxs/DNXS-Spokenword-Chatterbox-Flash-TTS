@@ -19,7 +19,7 @@ sys.path.append(str(project_root))
 from config.config import *
 from modules.tts_engine import load_optimized_model, process_one_chunk, prewarm_model_with_voice
 from modules.file_manager import setup_book_directories, list_voice_samples, ensure_voice_sample_compatibility
-from wrapper.chunk_loader import load_chunks, load_metadata, load_voice_sections
+from wrapper.chunk_loader import load_chunks, load_metadata, load_voice_sections, merge_tts_params
 from chatterbox_flash.text_norm import en_us_cleaner as punc_norm
 from modules.progress_tracker import log_chunk_progress, log_run
 from tools.combine_only import combine_audio_for_book
@@ -135,11 +135,18 @@ def generate_audiobook_from_json(json_path, voice_name, temp_setting=None, statu
         print(f"🚀 Using device: {device}")
 
         # Setup basic TTS parameters for model pre-warming only
-        user_tts_params = {
-            'exaggeration': DEFAULT_EXAGGERATION,
-            'cfg_weight': DEFAULT_CFG_WEIGHT,
-            'temperature': DEFAULT_TEMPERATURE
-        }
+        metadata_tts_params = meta.get('tts_params', {}) if meta else {}
+        user_tts_params = merge_tts_params(
+            defaults={
+                'exaggeration': DEFAULT_EXAGGERATION,
+                'cfg_scale': DEFAULT_FLASH_CFG_SCALE,
+                'temperature': DEFAULT_TEMPERATURE,
+                'num_steps': DEFAULT_FLASH_NUM_STEPS,
+                'time_shift_tau': DEFAULT_FLASH_TIME_SHIFT_TAU,
+                'backend': 'torch',
+            },
+            metadata_params=metadata_tts_params,
+        )
         print(f"🎛️ Pre-warming TTS params: {user_tts_params}")
 
         # Load TTS model
@@ -183,8 +190,14 @@ def generate_audiobook_from_json(json_path, voice_name, temp_setting=None, statu
         for i, chunk_data in enumerate(all_chunks):
             chunk_tts_params = chunk_data.get("tts_params", {})
 
-            if not chunk_tts_params or not all(key in chunk_tts_params for key in ['exaggeration', 'cfg_weight', 'temperature']):
-                missing_params = [key for key in ['exaggeration', 'cfg_weight', 'temperature'] if key not in chunk_tts_params]
+            chunk_tts_params = merge_tts_params(
+                chunk_data,
+                metadata_params=metadata_tts_params,
+                defaults=user_tts_params,
+            )
+
+            if not all(key in chunk_tts_params for key in ['exaggeration', 'cfg_scale', 'temperature']):
+                missing_params = [key for key in ['exaggeration', 'cfg_scale', 'temperature'] if key not in chunk_tts_params]
                 raise ValueError(f"Chunk {i+1} missing required TTS parameters: {missing_params}.")
 
             try:
@@ -349,9 +362,18 @@ def generate_multivoice_from_json(json_path, status_callback=None):
             print(f"   Voice file: {voice_path.name}")
             print(f"   TTS params: {section_tts_params}")
 
-            # Build full params dict — exaggeration/cfg_weight required by prewarm even though
-            # Turbo ignores them at generation time
-            full_tts_params = {'exaggeration': 0.5, 'cfg_weight': 0.5, 'min_p': 0.05, **section_tts_params}
+            # Build section defaults for pre-warming and chunk-level overrides.
+            full_tts_params = merge_tts_params(
+                defaults={
+                    'exaggeration': DEFAULT_EXAGGERATION,
+                    'cfg_scale': DEFAULT_FLASH_CFG_SCALE,
+                    'temperature': DEFAULT_TEMPERATURE,
+                    'num_steps': DEFAULT_FLASH_NUM_STEPS,
+                    'time_shift_tau': DEFAULT_FLASH_TIME_SHIFT_TAU,
+                    'backend': 'torch',
+                },
+                metadata_params=section_tts_params,
+            )
 
             # Switch voice conditioning on the already-loaded model
             model = prewarm_model_with_voice(model, str(voice_path), full_tts_params)
@@ -360,13 +382,18 @@ def generate_multivoice_from_json(json_path, status_callback=None):
                 # Use the chunk's actual index for output filename so assembly order is correct
                 chunk_idx = chunk_data.get('index', completed_chunks)
 
+                chunk_tts_params = merge_tts_params(
+                    chunk_data,
+                    metadata_params=section_tts_params,
+                    defaults=full_tts_params,
+                )
                 result = process_one_chunk(
                     chunk_idx,
                     chunk_data['text'],
                     text_chunks_dir,
                     audio_chunks_dir,
                     str(voice_path),
-                    full_tts_params,
+                    chunk_tts_params,
                     start_time,
                     total_chunks,
                     punc_norm,

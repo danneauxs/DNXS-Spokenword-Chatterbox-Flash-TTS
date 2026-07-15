@@ -63,7 +63,7 @@ sys.path.append(str(project_root))
 from config.config import *
 from modules.tts_engine import load_optimized_model, process_one_chunk, prewarm_model_with_voice
 from modules.file_manager import setup_book_directories, list_voice_samples, ensure_voice_sample_compatibility
-from wrapper.chunk_loader import load_chunks
+from wrapper.chunk_loader import load_chunks, load_metadata, merge_tts_params
 from chatterbox.tts_turbo import punc_norm
 from modules.progress_tracker import log_chunk_progress, log_run
 
@@ -88,6 +88,8 @@ def main():
 
     print(f"📖 Loading chunks from: {json_path}")
     all_chunks = load_chunks(str(json_path))
+    metadata = load_metadata(str(json_path)) or {}
+    metadata_tts_params = metadata.get('tts_params', {})
     print(f"✅ Found {len(all_chunks)} chunks.")
 
     # 3. Select Voice
@@ -133,7 +135,7 @@ def main():
     from modules.tts_engine import prewarm_model_with_voice
     compatible_voice = ensure_voice_sample_compatibility(voice_path)
     # Use default TTS params for pre-warming since we don't have user params here
-    model = prewarm_model_with_voice(model, compatible_voice, None)
+    model = prewarm_model_with_voice(model, compatible_voice, metadata_tts_params)
 
     # 7. Process Chunks
     output_root, tts_dir, text_chunks_dir, audio_chunks_dir = setup_book_directories(Path(TEXT_INPUT_ROOT) / book_name)
@@ -152,12 +154,18 @@ def main():
     with ThreadPoolExecutor(max_workers=2) as executor: # Test parallel processing
         futures = []
         for i, chunk_data in enumerate(all_chunks):
-            # Extract exaggeration from JSON, force others to default
-            chunk_tts_params = {
-                "exaggeration": chunk_data.get("tts_params", {}).get("exaggeration", DEFAULT_EXAGGERATION),
-                "cfg_weight": DEFAULT_CFG_WEIGHT,
-                "temperature": DEFAULT_TEMPERATURE
-            }
+            chunk_tts_params = merge_tts_params(
+                chunk_data,
+                metadata_params=metadata_tts_params,
+                defaults={
+                    "exaggeration": DEFAULT_EXAGGERATION,
+                    "cfg_scale": DEFAULT_FLASH_CFG_SCALE,
+                    "temperature": DEFAULT_TEMPERATURE,
+                    "num_steps": DEFAULT_FLASH_NUM_STEPS,
+                    "time_shift_tau": DEFAULT_FLASH_TIME_SHIFT_TAU,
+                    "backend": "torch",
+                },
+            )
 
             future = executor.submit(
                 process_one_chunk,
