@@ -1,0 +1,22 @@
+{
+  "project": "TurboFlash Windows Installer",
+  "last_session": "2026-07-14",
+  "current_focus": "Completed Windows installer rebuild for Chatterbox Flash on RTX 5070 systems",
+  "progress": {
+    "description": "Launcher uses uv with Torch 2.7.1 overrides and chatterbox-flash. src/ staging was removed and Inno Setup rebuilt the installer successfully."
+  },
+  "decisions": {
+    "cpu_support": "Not a target; preserve existing no-GPU branch without additional CPU handling.",
+    "flashinfer": "Do not install flashinfer; retain GUI option and existing tts_engine code unchanged.",
+    "gpu_detection": "Use existing nvidia-smi presence check only; no GPU-generation tiering.",
+    "cuda_target": "Use torch 2.7.1 and torchaudio 2.7.1 with cu128 index when NVIDIA GPU is detected."
+  },
+  "next_tasks": [
+    "Distribute build/windows/output/ChatterboxTTS-Setup-1.0.0.exe",
+    "Optionally validate first launch on Windows RTX 5070 hardware"
+  ],
+  "open_questions": [
+    "Windows RTX 5070 runtime smoke test unavailable because target hardware is not available."
+  ],
+  "notes": "Do not modify Linux CUDA lookup in modules/tts_engine.py or GUI flashinfer dropdown."
+}

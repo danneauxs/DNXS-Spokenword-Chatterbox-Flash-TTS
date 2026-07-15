@@ -1,0 +1,171 @@
+ChatterboxTTS Windows Installer Build
+======================================
+
+Build a standalone Windows .exe installer from Linux using Wine and Inno Setup.
+
+QUICK START
+===========
+
+1. Prerequisites (one-time):
+   sudo apt install wine64 wget unzip
+
+2. Build:
+   bash build/windows/build_linux.sh
+
+3. Output:
+   build/windows/output/ChatterboxTTS-Setup-1.0.0.exe
+
+That's it. One command builds the Windows installer on Linux.
+
+
+WHAT THE BUILD DOES
+===================
+
+The build_linux.sh script:
+  1. Initializes a Wine prefix (isolated Windows environment on Linux)
+  2. Installs Inno Setup 6 in Wine (one-time, ~2 minutes)
+  3. Downloads Python 3.12.8 embeddable (11 MB, cached on disk)
+  4. Stages all ChatterboxTTS source code
+  5. Configures Python for site-packages
+  6. Installs pip via get-pip.py
+  7. Installs certifi (SSL certificates)
+  8. Compiles Windows installer with ISCC.exe via Wine
+
+Result: ChatterboxTTS-Setup-1.0.0.exe (~30-50 MB)
+
+
+ON WINDOWS (USER INSTALLATION)
+==============================
+
+User receives: ChatterboxTTS-Setup-1.0.0.exe
+
+User runs:
+  1. Double-click ChatterboxTTS-Setup-1.0.0.exe
+  2. Inno Setup wizard extracts to %LOCALAPPDATA%\ChatterboxTTS
+  3. launcher.pyw runs automatically:
+     - Detects first run (.setup_complete missing)
+     - Downloads PyTorch with CUDA support (~2-3 GB)
+     - Installs requirements.txt
+     - Launches chatterbox_gui.py
+
+User experience:
+  - First launch: ~10-15 minutes (PyTorch download + setup)
+  - Subsequent launches: instant
+
+
+FILE STRUCTURE
+==============
+
+build/windows/
+├── build_linux.sh                ← Run this to build
+├── installer.iss                 ← Inno Setup configuration
+├── QUICKSTART.txt                ← This file
+├── get-pip.py                    ← Pre-downloaded pip bootstrap
+├── python-3.12.8-embed-amd64.zip ← Pre-downloaded Python
+├── build_stage/                  ← Auto-created during build
+│   ├── python/                   ← Extracted and configured
+│   ├── chatterbox_gui.py         ← Copied from project root
+│   ├── launcher.pyw              ← First-run setup script
+│   ├── config/, modules/         ← Application code
+│   ├── ASR/                      ← ASR subsystem
+│   └── installer.iss             ← Copied here
+└── output/                       ← Final .exe goes here
+
+
+WINDOWS INSTALLER FEATURES
+==========================
+
+Installation:
+  ✓ No admin rights needed
+  ✓ Per-user installation (%LOCALAPPDATA%)
+  ✓ Creates Start Menu shortcuts
+  ✓ Creates Desktop shortcut (optional)
+  ✓ Uninstall via Control Panel
+
+First Run:
+  ✓ Automatic PyTorch download (GPU + CPU fallback)
+  ✓ Automatic dependency installation
+  ✓ Auto-launches GUI when ready
+  ✓ Console output shows progress
+
+Subsequent Runs:
+  ✓ Direct GUI launch (skips setup)
+  ✓ No console window (clean user experience)
+
+
+BUILD TIME
+==========
+
+First build (with Inno Setup + Wine init): 15-20 minutes
+Subsequent builds: 5-10 minutes
+PyTorch download on Windows (first run): 10-15 minutes
+
+
+TROUBLESHOOTING
+===============
+
+Wine errors (e.g., "Could not load"):
+  → These are harmless warnings, not errors. Build continues.
+
+Python embeddable not extracted:
+  → Check if Python zip is valid: unzip -t python-3.12.8-embed-amd64.zip
+  → If corrupted, delete and rebuild: rm python-3.12.8-embed-amd64.zip
+
+Inno Setup not found:
+  → First build initializes Wine and installs Inno Setup
+  → If fails, delete: rm -rf ~/.wine-chatterbox-tts64
+  → Try again: bash build/windows/build_linux.sh
+
+ISCC compilation fails:
+  → Check build_stage/build_stage directory exists
+  → Run from build directory: cd build/windows && bash build_linux.sh
+  → Check installer.iss for syntax errors
+
+
+DISTRIBUTION
+============
+
+1. Build creates: build/windows/output/ChatterboxTTS-Setup-1.0.0.exe
+2. Copy to distribution media
+3. Send to Windows users
+4. Users run the .exe → fully installed application
+
+No other dependencies, no .NET, no Windows bloat.
+
+
+KEY FILES
+=========
+
+launcher.pyw
+  - First-run setup script (downloads PyTorch + deps)
+  - Runs on each launch
+  - Creates .setup_complete marker on success
+  - Subsequent runs skip setup and launch GUI directly
+
+build_linux.sh
+  - Build orchestrator (Wine + Inno Setup)
+  - Creates staged application in build_stage/
+  - Compiles installer with ISCC.exe
+
+installer.iss
+  - Inno Setup configuration
+  - Defines installer behavior
+  - Bundles Python, source code, launcher
+  - Creates Start Menu + Desktop shortcuts
+
+get-pip.py, python-3.12.8-embed-amd64.zip
+  - Pre-cached on disk (no need to re-download)
+  - Already present in build/windows/
+  - Downloaded once, reused for all builds
+
+
+REFERENCES
+==========
+
+Win2exeBlueprint: /home/danno/MyApps/Turbo/win2exeblueprint.txt
+  Complete architecture documentation
+
+Wine: https://www.winehq.org/
+Inno Setup: https://jrsoftware.org/
+Python embeddable: https://www.python.org/downloads/windows/
+PyTorch: https://pytorch.org/
