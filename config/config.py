@@ -196,9 +196,9 @@ BASE_TEMPERATURE = DEFAULT_TEMPERATURE    # Default: 0.7
 # --- Sensitivity ---
 # How much VADER's compound score affects each parameter.
 # Higher values mean more dramatic changes based on sentiment.
-VADER_EXAGGERATION_SENSITIVITY = 0.33
-VADER_CFG_SCALE_SENSITIVITY = 0.32
-VADER_TEMPERATURE_SENSITIVITY = 0.3
+VADER_EXAGGERATION_SENSITIVITY = 0.33  # Unchanged - exaggeration's range (0.1-0.75) didn't change
+VADER_CFG_SCALE_SENSITIVITY = 1.13     # Rescaled from 0.32 (old cfg_weight range 0.15-1.0) for cfg_scale's larger 0.0-3.0 range
+VADER_TEMPERATURE_SENSITIVITY = 0.19   # Rescaled from 0.3 for temperature's narrower 0.0-1.5 range (was 0.1-2.35)
 
 # --- Min/Max Clamps ---
 # Hard limits to prevent extreme, undesirable audio artifacts.

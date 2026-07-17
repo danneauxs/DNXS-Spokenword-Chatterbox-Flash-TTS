@@ -1472,6 +1472,9 @@ def generate_enriched_chunks(text_file, output_dir, user_tts_params=None, qualit
                 "exaggeration": exaggeration,
                 "cfg_scale": cfg_scale,
                 "temperature": temperature,
+                "num_steps": base_num_steps,
+                "time_shift_tau": base_time_shift_tau,
+                "backend": base_backend,
             }
         })
 
