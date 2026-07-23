@@ -1,27 +1,42 @@
 {
   "project": "TurboFlash Windows Installer",
-  "last_session": "2026-07-15",
-  "current_focus": "FlashTest linked to GitHub repository and pushed; Windows artifact rebuild pending wine64",
+  "last_session": "2026-07-23",
+  "current_focus": "GPU-aware dependency installation for Linux venv",
   "progress": {
-    "description": "Implemented per-chunk Flash VADER parameters, fixed run-level metadata, metadata-preserving repair/replay paths, and CFG scale naming across 14 Python files. Changes committed in ff7bd1a, merged with remote initial history in 416d6e4, and pushed to origin/main. Syntax, imports, metadata merge, legacy CFG compatibility, and docstring checks pass."
+    "description": "Switched distribution toward Flash-only runtime dependencies. Linux installer and launcher now strictly use the repository ./venv: install.sh always creates or activates it, and 0.sh requires and activates it with no system-Python fallback. install.sh installs requirements.txt only, creates .env from template when missing, and validates Flash imports. launcher.pyw now installs only requirements.txt into bundled Windows Python. requirements.txt now includes chatterbox-flash, and runtime helpers were moved off src.chatterbox/chatterbox.tts_turbo imports. build/windows/build_linux.sh now stages only runtime files needed by the installer, and build/create_distribution.sh now produces a minimal shareable tar.gz bundle. README installation steps now match the new flow. Windows installer build still needs a host with wine64 to execute end-to-end.",
+    "installer_gpu_selection": "Dependency dry-run passes for RTX 4060 Ti pre-Blackwell path; full install remains pending."
   },
   "decisions": {
     "cpu_support": "Not a target; preserve existing no-GPU branch without additional CPU handling.",
-    "flashinfer": "Do not install flashinfer; retain GUI option and existing tts_engine code unchanged.",
-    "gpu_detection": "Use existing nvidia-smi presence check only; no GPU-generation tiering.",
+    "gpu_detection": "Use nvidia-smi compute capability; major version >=12 selects Blackwell workaround, older or missing capability selects torch 2.6.0.",
     "cuda_target": "Use torch 2.7.1 and torchaudio 2.7.1 with cu128 index when NVIDIA GPU is detected.",
     "flash_json_schema": "Store num_steps, time_shift_tau, and backend in first _metadata tts_params; store VADER-adjusted exaggeration, cfg_scale, and temperature per chunk.",
-    "microbatching": "Keep ENABLE_MICRO_BATCHING, ENABLE_VADER_MICRO_BATCHING, and ENABLE_BATCH_BINNING disabled.",
-    "legacy_cfg": "Read cfg_weight only as compatibility input, normalize it to cfg_scale, and never write cfg_weight."
+    "microbatching": "Removed ineffective ENABLE_MICRO_BATCHING, ENABLE_VADER_MICRO_BATCHING, and ENABLE_BATCH_BINNING controls; retain TTS_BATCH_SIZE for real Flash outer batching and S3Gen scheduling.",
+    "flash_batch_cuda_graphs": "Disable CUDA graph capture for Flash batches by default until runtime quality validation passes.",
+    "flash_batch_quality_guard": "T3 Batch mode preserves combined-generation quality fallback; Staged T3/S3Gen mode retains T3-only rows, strips special codec IDs, and sends every retained row to scheduled S3Gen.",
+    "legacy_cfg": "Read cfg_weight only as compatibility input, normalize it to cfg_scale, and never write cfg_weight.",
+    "installer_portability": "Keep install and build scripts repo-relative; avoid machine-specific absolute paths in shipped runtime files and stage config.",
+    "windows_bundle_docs": "Include README.md and LICENSE in Windows installer output.",
+    "tab8_status_display": "Keep Tab 8 status panel as separate widget, but match Tab 1 title and route JSON-generation structured status signals to Tab 8.",
+    "flash_runtime_only": "Use chatterbox-flash for runtime imports and keep old Turbo helper imports out of install-time dependency checks.",
+    "launcher_env_probe": "0.sh now uses the repo venv created by install.sh instead of probing multiple env paths.",
+    "venv_contract": "Installer and launcher should both use ./venv as the single Linux environment path.",
+    "gpu_install_strategy": "Blackwell uses torch 2.7.1+cu128 and installs chatterbox-tts/chatterbox-flash with --no-deps; older GPUs and CPU use torch 2.6.0."
   },
   "next_tasks": [
-    "Run build/windows/build_linux.sh on host with wine64 available",
-    "Keep future work on master tracking origin/main",
-    "Optionally validate first launch on Windows RTX 5070 hardware"
+    "Run install.sh in clean environment with dependency access and confirm runtime imports pass",
+    "Verify Blackwell branch on RTX 50-series host or mocked nvidia-smi output",
+    "Run build/create_distribution.sh and inspect resulting tar.gz contents",
+    "Run build/windows/build_linux.sh on a host with wine64 and confirm installer.exe is produced",
+    "Keep future work on master tracking origin/main"
   ],
   "open_questions": [
-    "Windows installer rebuild unavailable on current host because wine64 is missing.",
+    "Whether Flash s3gen.safetensors and Turbo s3gen_meanflow.safetensors contain identical weights is unresolved because no local checkpoint files were present",
+    "Whether the user's Pipeline 4 refers to an external/uncommitted design is unresolved; no literal Pipeline 4 symbol exists in the inspected Turbo tree",
+    "Flash batching controls were removed because they did not control real Flash T3 or S3Gen batching.",
+    "Current S3Gen public API remains batch-size-one; T3-to-S3Gen queue separation is independently feasible using token rows and retained conditionals.",
+    "Windows installer rebuild still needs a host with wine64 on PATH or the system fallback path.",
     "Windows RTX 5070 runtime smoke test unavailable because target hardware is not available."
   ],
-  "notes": "Do not modify Linux CUDA lookup in modules/tts_engine.py or GUI flashinfer dropdown. Remote origin is https://github.com/danneauxs/DNXS-Spokenword-Chatterbox-Flash-TTS.git. Existing build/windows/output artifact was not rebuilt after source changes."
+  "notes": "Remote origin is https://github.com/danneauxs/DNXS-Spokenword-Chatterbox-Flash-TTS.git. Existing build/windows/output artifact was not rebuilt after source changes. Active validation used project .venv with RTX 4060 Ti, Torch 2.7.1+cu128, and cached Flash weights. requirements.txt explicitly includes PyQt5>=5.15.0 and PyQt5-sip>=12.0.0. At 2026-07-23 verification, no ./venv directory existed in this checkout; the reported launcher output must predate the current strict launcher or come from another checkout. DocDNA incremental sync required after source edit; docdna-query command was unavailable in current shell, so SQLite fallback was used. Source files changed this session now include install.sh, launcher.pyw, build/create_distribution.sh, build/windows/build_linux.sh, README.md, requirements.txt, interface.py, chatterbox_gui.py, tools/bench_tts.py, tools/generate_from_json.py, utils/generate_from_json.py, plus prior files ASR/asr_config.json, ToolsTest/token_file_to_flash_s3gen.py, config/config.py."
 }

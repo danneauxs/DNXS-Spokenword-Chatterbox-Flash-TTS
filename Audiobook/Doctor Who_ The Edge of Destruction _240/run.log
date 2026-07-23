@@ -1,0 +1,24 @@
+
+===== Processing: Doctor Who_ The Edge of Destruction (240) =====
+Voice: Adam - 1950
+Started: 2026-07-23 17:18:06
+Text file processed: TEST4.txt
+Total chunks generated: 64
+Combined WAV: Audiobook/Doctor Who_ The Edge of Destruction _240/Doctor Who_ The Edge of Destruction (240) [Adam - 1950].wav
+--- Generation Settings ---
+Batch Processing: Enabled (50000 chunks per batch)
+ASR Enabled: False
+ASR Threshold: 0.85
+Hum Detection: False
+Dynamic Workers: False
+Voice used: Adam - 1950
+Exaggeration: 0.5
+CFG Scale: 0.9
+Temperature: 0.3
+Num Steps: 5
+Time-Shift Tau: 0.0
+Backend: torch
+Processing Time: 0:00:49
+Audio Duration: 0:07:04
+Realtime Factor: 8.52x
+Total Chunks: 64

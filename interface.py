@@ -41,10 +41,8 @@ import torch
 import argparse
 from pathlib import Path
 try:
-    from src.chatterbox.tts_turbo import ChatterboxTurboTTS
+    from chatterbox_flash.tts import ChatterboxFlashTTS as ChatterboxTurboTTS
 except ImportError:
-    # TurboFlash dependency-test copy: old model source isn't present and
-    # isn't needed here (unused in this file beyond the import itself).
     ChatterboxTurboTTS = None
 
 # Set environment and suppress warnings
@@ -57,7 +55,7 @@ from modules.text_processor import (
     sentence_chunk_text, smart_punctuate, detect_content_boundaries
 )
 try:
-    from src.chatterbox.tts_turbo import punc_norm
+    from chatterbox_flash.text_norm import en_us_cleaner as punc_norm
 except ImportError:
     punc_norm = None
 from modules.audio_processor import (

@@ -8,52 +8,34 @@ echo "=============================="
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Activate virtual environment if it exists, otherwise use system Python
 echo "Checking for virtual environment..."
-USE_VENV=0
-
-if [ -d ".venv" ]; then
-    echo "🔧 Found virtual environment (.venv), activating..."
-    source .venv/bin/activate
-    USE_VENV=1
-elif [ -d "venv" ]; then
-    echo "🔧 Found virtual environment, activating..."
-    source venv/bin/activate
-    USE_VENV=1
-elif [ -d "../venv" ]; then
-    echo "🔧 Found virtual environment in parent directory, activating..."
-    source ../venv/bin/activate
-    USE_VENV=1
-else
-    echo "ℹ️  No virtual environment found, using system Python"
-    USE_VENV=0
-fi
-
-# Verify PyQt5 is available
-echo "Checking for PyQt5..."
-if ! python3 -c "import PyQt5" 2>/dev/null; then
-    echo "❌ PyQt5 not found!"
-    echo ""
-    if [ $USE_VENV -eq 1 ]; then
-        echo "Virtual environment is active but PyQt5 is missing."
-        echo "Run ./install.sh to install all dependencies."
-    else
-        echo "Run ./install.sh to create and configure the virtual environment."
-    fi
+VENV_DIR="$SCRIPT_DIR/venv"
+if [ ! -x "$VENV_DIR/bin/python" ]; then
+    echo "❌ ./venv is missing or incomplete."
+    echo "Run ./install.sh to create and configure ./venv."
     exit 1
 fi
 
-if [ $USE_VENV -eq 1 ]; then
-    echo "✅ Using virtual environment"
-else
-    echo "✅ Using system Python"
+echo "🔧 Activating virtual environment (venv)..."
+# shellcheck disable=SC1091
+source "$VENV_DIR/bin/activate"
+
+# Verify PyQt5 is available
+echo "Checking for PyQt5..."
+if ! python -c "import PyQt5" 2>/dev/null; then
+    echo "❌ PyQt5 not found!"
+    echo ""
+    echo "Virtual environment is active but PyQt5 is missing."
+    echo "Run ./install.sh to install all dependencies."
+    exit 1
 fi
 
+echo "✅ Using virtual environment: ./venv"
 echo "✅ PyQt5 found"
 
 # Check PyTorch CUDA compatibility
 echo "🔍 Checking PyTorch CUDA compatibility..."
-PYTORCH_CUDA_CHECK=$(python3 -c "
+PYTORCH_CUDA_CHECK=$(python -c "
 import torch
 import sys
 import subprocess
@@ -158,7 +140,7 @@ case "$PYTORCH_CUDA_CHECK" in
 esac
 
 # Check for optional dependencies
-if ! python3 -c "import vaderSentiment" 2>/dev/null; then
+if ! python -c "import vaderSentiment" 2>/dev/null; then
     echo "⚠️ Warning: vaderSentiment not found (sentiment analysis will be disabled)"
 fi
 
@@ -174,7 +156,7 @@ echo ""
 
 # Launch the GUI
 export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
-python3 chatterbox_gui.py
+python chatterbox_gui.py
 
 exit_code=$?
 

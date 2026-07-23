@@ -7,11 +7,12 @@ A proper GUI wrapper for the main_launcher.py functionality
 import sys
 import os
 
-# Set HuggingFace environment variables before any imports
-if 'HF_HOME' not in os.environ:
-    os.environ['HF_HOME'] = os.path.expanduser('~/.cache/huggingface')
-if 'TRANSFORMERS_CACHE' not in os.environ:
-    os.environ['TRANSFORMERS_CACHE'] = os.path.expanduser('~/.cache/huggingface/transformers')
+# Set HuggingFace environment variables before any imports.
+cache_home = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
+if "HF_HOME" not in os.environ:
+    os.environ["HF_HOME"] = os.path.join(cache_home, "huggingface")
+if "TRANSFORMERS_CACHE" not in os.environ:
+    os.environ["TRANSFORMERS_CACHE"] = os.path.join(cache_home, "huggingface", "transformers")
 
 import subprocess
 import threading
@@ -1004,21 +1005,6 @@ class ChatterboxMainWindow(QMainWindow):
 
         layout.addStretch()
 
-    def handle_vader_toggle(self, state):
-        """When VADER is turned off, disable VADER in config flags."""
-        is_checked = bool(state)
-        try:
-            from config import config as _cfg
-        except Exception:
-            _cfg = None
-
-        if not is_checked:
-            try:
-                if _cfg is not None:
-                    _cfg.ENABLE_VADER_MICRO_BATCHING = False
-            except Exception:
-                pass
-
     def _attach_spin_reset(self, spin, config_key: str):
         """Attaches a configuration key to a widget and sets up context menu handling.
         Args:
@@ -1067,6 +1053,9 @@ class ChatterboxMainWindow(QMainWindow):
             if isinstance(w, QCheckBox):
                 return bool(w.isChecked())
             if isinstance(w, QComboBox):
+                data = w.currentData()
+                if data is not None:
+                    return data
                 text = w.currentText()
                 # Best-effort numeric cast for numeric combos
                 try:
@@ -1091,6 +1080,7 @@ class ChatterboxMainWindow(QMainWindow):
             'MAX_WORKERS': 'max_workers',
             'BATCH_SIZE': 'batch_size',
             'TTS_BATCH_SIZE': 'tts_batch_size',
+            'TTS_PIPELINE_MODE': 'tts_pipeline_mode',
             'MIN_CHUNK_WORDS': 'min_chunk_words',
             'MAX_CHUNK_WORDS': 'max_chunk_words',
             'CHUNKING_QUALITY': 'chunking_quality',
@@ -1267,6 +1257,16 @@ class ChatterboxMainWindow(QMainWindow):
         self.batch_size_spin.setValue(BATCH_SIZE)
         self.batch_size_spin.setMaximumWidth(60)
         workers_layout.addRow("Reload Model Batch Size:", self.batch_size_spin)
+
+        self.tts_pipeline_mode_combo = QComboBox()
+        self.tts_pipeline_mode_combo.addItem("T3 Batch", "t3_batch")
+        self.tts_pipeline_mode_combo.addItem("Staged T3/S3Gen", "staged_t3_s3gen")
+        configured_pipeline_mode = getattr(config_mod, 'TTS_PIPELINE_MODE', 't3_batch')
+        configured_index = self.tts_pipeline_mode_combo.findData(configured_pipeline_mode)
+        self.tts_pipeline_mode_combo.setCurrentIndex(max(0, configured_index))
+        self.tts_pipeline_mode_combo.setMaximumWidth(180)
+        self._attach_config_key(self.tts_pipeline_mode_combo, 'TTS_PIPELINE_MODE')
+        workers_layout.addRow("TTS Pipeline:", self.tts_pipeline_mode_combo)
 
         # Word Count & Chunking Quality Group
         words_group = QGroupBox("Word Count & Chunking Quality")
@@ -2348,7 +2348,7 @@ class ChatterboxMainWindow(QMainWindow):
         self.json_slider_dragging = False
 
         # Add structured status panel for Tab 8
-        self.tab8_status_panel = StructuredStatusPanel("🎵 JSON Generation Status")
+        self.tab8_status_panel = StructuredStatusPanel("🚀 TTS Generation Status")
         layout.addWidget(self.tab8_status_panel)
 
         # Initialize real-time status manager for Tab 8
@@ -3410,20 +3410,27 @@ class ChatterboxMainWindow(QMainWindow):
             # Clear and populate voice combo with ONLY likely candidates
             self.repair_voice_combo.clear()
 
-            # Always start with placeholder - no auto-selection
+            # Keep the placeholder while allowing JSON metadata to select its voice.
             self.repair_voice_combo.addItem("-- Please Select Voice --", None)
 
             if likely_voices:
-                # Add detected voice candidates (but don't auto-select any)
-                for voice_name, voice_path, detection_method in likely_voices:
+                selected_voice = None
+                for combo_index, (voice_name, voice_path, detection_method) in enumerate(likely_voices, start=1):
                     display_text = f"{voice_name} ({detection_method})"
                     self.repair_voice_combo.addItem(display_text, (voice_name, voice_path, detection_method))
+                    if detection_method == "json_metadata":
+                        selected_voice = (combo_index, voice_name, voice_path)
 
-                # Clear current selection - force user choice
-                self.current_repair_voice_name = None
-                self.current_repair_voice_path = None
-
-                info_text = f"✅ Found {len(likely_voices)} candidate(s). Please select voice before resynthesizing."
+                if selected_voice:
+                    combo_index, voice_name, voice_path = selected_voice
+                    self.repair_voice_combo.setCurrentIndex(combo_index)
+                    self.current_repair_voice_name = voice_name
+                    self.current_repair_voice_path = voice_path
+                    info_text = f"✅ Auto-selected {voice_name} from JSON metadata."
+                else:
+                    self.current_repair_voice_name = None
+                    self.current_repair_voice_path = None
+                    info_text = f"✅ Found {len(likely_voices)} candidate(s). Please select voice before resynthesizing."
                 self.repair_voice_info.setText(info_text)
                 self.repair_voice_info.setStyleSheet("background-color: #d4edda; padding: 5px; border: 1px solid #c3e6cb; color: #155724;")
 
@@ -4137,6 +4144,9 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
 
             # Performance settings (MAX_WORKERS / TTS_BATCH_SIZE spinners were removed from the GUI)
             self.batch_size_spin.setValue(getattr(config_mod, 'BATCH_SIZE', self.batch_size_spin.value()))
+            configured_pipeline_mode = getattr(config_mod, 'TTS_PIPELINE_MODE', 't3_batch')
+            configured_index = self.tts_pipeline_mode_combo.findData(configured_pipeline_mode)
+            self.tts_pipeline_mode_combo.setCurrentIndex(max(0, configured_index))
             self.min_chunk_words_spin.setValue(getattr(config_mod, 'MIN_CHUNK_WORDS', self.min_chunk_words_spin.value()))
             self.max_chunk_words_spin.setValue(getattr(config_mod, 'MAX_CHUNK_WORDS', self.max_chunk_words_spin.value()))
 
@@ -4242,7 +4252,7 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
             checkbox.toggled.connect(self.mark_config_changed)
 
         # Connect combo boxes to change tracking
-        config_combos = [self.m4b_sample_rate_combo]
+        config_combos = [self.m4b_sample_rate_combo, self.tts_pipeline_mode_combo]
         for combo in config_combos:
             combo.currentTextChanged.connect(self.mark_config_changed)
 
@@ -4302,6 +4312,7 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
             # those keys keep their existing values in config.py.
             gui_values = {
                 'BATCH_SIZE': self.batch_size_spin.value(),
+                'TTS_PIPELINE_MODE': self.tts_pipeline_mode_combo.currentData(),
                 'MIN_CHUNK_WORDS': self.min_chunk_words_spin.value(),
                 'MAX_CHUNK_WORDS': self.max_chunk_words_spin.value(),
                 'CHUNKING_QUALITY': self.chunking_quality_combo.currentText(),
@@ -4677,7 +4688,7 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
             )
             self.json_generation_thread.output_signal.connect(self.log_output)
             self.json_generation_thread.finished_signal.connect(self.json_generation_finished)
-            self.json_generation_thread.structured_status_signal.connect(self.update_tab1_status_panel)
+            self.json_generation_thread.structured_status_signal.connect(self.update_tab8_status_panel)
             # Skip progress signal connection to avoid Qt threading issues
             self.json_generation_thread.start()
 
@@ -4765,7 +4776,7 @@ Audio: chunk_{chunk['index']+1:05d}.wav"""
         self.json_multivoice_thread = ProcessThread(self._run_multivoice_from_json, json_path)
         self.json_multivoice_thread.output_signal.connect(self.log_output)
         self.json_multivoice_thread.finished_signal.connect(self._multivoice_finished)
-        self.json_multivoice_thread.structured_status_signal.connect(self.update_tab1_status_panel)
+        self.json_multivoice_thread.structured_status_signal.connect(self.update_tab8_status_panel)
         self.json_multivoice_thread.start()
 
     def _run_multivoice_from_json(self, json_path):

@@ -1,0 +1,212 @@
+=== Terminal Log Started: 2026-07-23 17:18:06.594147 ===
+📝 Terminal logging started - output: /media/danno/Team1/flashtest test/term.log
+🔍 DEBUG: Entering process_book_folder with book_dir='/home/danno/Calibre Library/Nigel Robinson/Doctor Who_ The Edge of Destruction (240)', voice_path='/home/danno/MyApps/chatterbox (copy)/Voice_Samples/Adam - 1950.wav'
+🔧 Applying GUI quality parameters: {'regeneration_enabled': False, 'max_attempts': 3, 'quality_threshold': 0.3, 'sentiment_smoothing': False, 'smoothing_window': 3, 'smoothing_method': 'rolling', 'mfcc_validation': False, 'spectral_threshold': 0.6, 'output_validation': False, 'output_threshold': 0.6}
+✅ Quality settings applied - Regeneration: False, MFCC: False, Output Validation: False
+🎵 Inline pauses DISABLED via GUI
+🎵 Updated inline pause mapping from GUI values
+🔍 DEBUG: Successfully imported punc_norm
+🔍 DEBUG: Calling setup_book_directories...
+🔍 DEBUG: Directory setup complete
+🚀 Using optimized TTS model with REAL performance improvements
+🧹 FRESH PROCESSING: Cleaning previous processing files...
+✅ Cleanup complete
+🔍 DEBUG: Calling find_book_files...
+🎯 DEBUG: Using GUI-selected text file: /home/danno/Calibre Library/Nigel Robinson/Doctor Who_ The Edge of Destruction (240)/TEST4.txt
+🔍 DEBUG: About to call generate_enriched_chunks with quality_params: {'regeneration_enabled': False, 'max_attempts': 3, 'quality_threshold': 0.3, 'sentiment_smoothing': False, 'smoothing_window': 3, 'smoothing_method': 'rolling', 'mfcc_validation': False, 'spectral_threshold': 0.6, 'output_validation': False, 'output_threshold': 0.6}
+🔍 DEBUG: About to call generate_enriched_chunks with config_params: {'batch_size': 50000, 'tts_pipeline_mode': 't3_batch', 'min_chunk_words': 4, 'max_chunk_words': 28, 'chunking_quality': 'High', 'enable_normalization': True, 'target_lufs': -16, 'm4b_sample_rate': 24000, 'enable_audio_trimming': True, 'speech_threshold': 0.004, 'trimming_buffer': 100, 'vader_exag_sensitivity': 0.33, 'vader_cfg_sensitivity': 1.13, 'vader_temp_sensitivity': 0.19, 'silence_chapter_start': 1195, 'silence_chapter_end': 1500, 'silence_section': 700, 'silence_paragraph': 700, 'silence_comma': 150, 'silence_period': 500, 'silence_question': 600, 'silence_exclamation': 300, 'chunk_silence_duration': 200, 'enable_punctuation_pauses': False, 'playback_speed': 1.0, 'inline_comma_ms': 150, 'inline_period_ms': 550, 'inline_question_ms': 650, 'inline_exclamation_ms': 200, 'asr_config': {'enabled': False}}
+🔍 DEBUG: Using voice: Adam - 1950
+🔧 JSON Generation: Using GUI smoothing settings - Enabled: False, Window: 3, Method: rolling
+🔧 JSON Generation: Using GUI VADER sensitivity - Exag: 0.33, CFG: 1.13, Temp: 0.19
+✅ Loaded 11 abbreviation replacements from utils/abbreviations.txt
+🗣️ DEBUG: Dialogue detected in smart_punctuate: For a heart-stopping few seconds, which to the four doomed travellers seemed Like hours, nothing hap...
+✅ Saved voice metadata: Adam - 1950
+🎯 Processing 64 chunks with REAL optimized inference
+🔍 DEBUG: Creating run_log_lines...
+🔍 DEBUG: voice_path type: <class 'pathlib.PosixPath'>, value: /home/danno/MyApps/chatterbox (copy)/Voice_Samples/Adam - 1950.wav
+📊 Processing 64 chunks with intelligent reload decisions
+
+🔄 Processing batch: chunks 1-64
+❌ ASR model loading failed completely - disabling ASR for this batch
+🎤 ASR validation disabled for this batch
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING - Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+🔥 Pre-warming model with voice sample...
+🎤 Generating warm-up audio: 'sixth sick sheik's sixth sheep's sick, and red leather, yellow leather.'
+🔵 T3 (block-diffusion): 118 speech tokens in 0.58s (204.6 tok/s)
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 21.74it/s]
+🟢 S3Gen (vocoder): 113 tokens vocoded in 0.35s (318.7 tok/s)
+✅ Model pre-warming completed - first chunk quality optimized
+🔧 Using 1 workers for batch 1-64
+🚀 Processing with REAL TTS optimizations (mixed precision, torch.compile)
+🚀 VADER disabled. Running in high-performance batch mode.
+🔀 TTS pipeline: t3_batch
+📊 Processing 64 chunks in 22 length-compatible batches up to size 3
+🔵 T3 (block-diffusion): 300 speech tokens in 0.31s (980.8 tok/s)
+🔵 T3 (block-diffusion): 300 speech tokens in 0.39s (765.0 tok/s)
+🔵 T3 (block-diffusion): 300 speech tokens in 0.34s (880.1 tok/s)
+🔵 T3 (block-diffusion): 300 speech tokens in 0.36s (841.5 tok/s)
+🔵 T3 (block-diffusion): 300 speech tokens in 0.44s (683.9 tok/s)
+🔵 T3 (block-diffusion): 300 speech tokens in 0.59s (507.8 tok/s)
+🔵 T3 (block-diffusion): 120 speech tokens in 0.50s (241.0 tok/s)
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 24.98it/s]
+🟢 S3Gen (vocoder): 118 tokens vocoded in 0.30s (395.1 tok/s)
+🔵 T3 (block-diffusion): 324 speech tokens in 0.54s (598.1 tok/s)
+🔵 T3 (block-diffusion): 107 speech tokens in 0.40s (267.0 tok/s)
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 25.58it/s]
+🟢 S3Gen (vocoder): 97 tokens vocoded in 0.27s (363.7 tok/s)
+🔵 T3 (block-diffusion): 360 speech tokens in 0.69s (518.4 tok/s)
+🔵 T3 (block-diffusion): 127 speech tokens in 0.46s (274.5 tok/s)
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 24.85it/s]
+🟢 S3Gen (vocoder): 113 tokens vocoded in 0.29s (395.4 tok/s)
+🔵 T3 (block-diffusion): 342 speech tokens in 1.48s (231.6 tok/s)
+🔵 T3 (block-diffusion): 121 speech tokens in 0.46s (262.2 tok/s)
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 37.70it/s]
+🟢 S3Gen (vocoder): 113 tokens vocoded in 0.08s (1387.6 tok/s)
+🔵 T3 (block-diffusion): 378 speech tokens in 0.76s (497.0 tok/s)
+🔵 T3 (block-diffusion): 143 speech tokens in 0.57s (252.2 tok/s)
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 22.37it/s]
+🟢 S3Gen (vocoder): 143 tokens vocoded in 0.33s (429.6 tok/s)
+🔵 T3 (block-diffusion): 402 speech tokens in 1.87s (215.4 tok/s)
+🔵 T3 (block-diffusion): 249 speech tokens in 0.91s (273.4 tok/s)
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 19.82it/s]100%|██████████| 2/2 [00:00<00:00, 19.74it/s]
+🟢 S3Gen (vocoder): 241 tokens vocoded in 0.43s (566.4 tok/s)
+🔵 T3 (block-diffusion): 164 speech tokens in 0.65s (250.9 tok/s)
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 21.81it/s]
+🟢 S3Gen (vocoder): 160 tokens vocoded in 0.34s (476.9 tok/s)
+🔵 T3 (block-diffusion): 528 speech tokens in 0.95s (556.3 tok/s)
+🔵 T3 (block-diffusion): 157 speech tokens in 0.60s (261.9 tok/s)
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 22.62it/s]
+🟢 S3Gen (vocoder): 147 tokens vocoded in 0.33s (451.0 tok/s)
+🔵 T3 (block-diffusion): 564 speech tokens in 1.19s (475.5 tok/s)
+🔵 T3 (block-diffusion): 582 speech tokens in 0.93s (622.9 tok/s)
+🔵 T3 (block-diffusion): 588 speech tokens in 1.06s (553.9 tok/s)
+🔵 T3 (block-diffusion): 642 speech tokens in 1.28s (502.7 tok/s)
+🔵 T3 (block-diffusion): 624 speech tokens in 1.31s (477.9 tok/s)
+🔵 T3 (block-diffusion): 636 speech tokens in 1.31s (484.3 tok/s)
+🔵 T3 (block-diffusion): 642 speech tokens in 1.31s (491.7 tok/s)
+🔵 T3 (block-diffusion): 648 speech tokens in 1.47s (439.8 tok/s)
+🔵 T3 (block-diffusion): 358 speech tokens in 1.41s (254.3 tok/s)
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 15.11it/s]100%|██████████| 2/2 [00:00<00:00, 15.09it/s]
+🟢 S3Gen (vocoder): 352 tokens vocoded in 0.60s (582.6 tok/s)
+🔵 T3 (block-diffusion): 720 speech tokens in 3.48s (206.9 tok/s)
+🔵 T3 (block-diffusion): 248 speech tokens in 0.96s (259.1 tok/s)
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 19.87it/s]100%|██████████| 2/2 [00:00<00:00, 19.83it/s]
+🟢 S3Gen (vocoder): 240 tokens vocoded in 0.45s (530.7 tok/s)
+🔵 T3 (block-diffusion): 271 speech tokens in 1.02s (264.6 tok/s)
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 19.62it/s]100%|██████████| 2/2 [00:00<00:00, 19.58it/s]
+🟢 S3Gen (vocoder): 257 tokens vocoded in 0.47s (544.4 tok/s)
+📦 Scheduling 53 retained T3 rows in 18 padded S3Gen batches
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 15.84it/s]100%|██████████| 2/2 [00:00<00:00, 15.77it/s]
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 15.48it/s]100%|██████████| 2/2 [00:00<00:00, 15.42it/s]
+🌀 Chunk 15/64 | ⏱ Elapsed: [96m0:00:34[0m | ETA: [96m0:02:28[0m | Remaining: [93m0:01:53[0m | Realtime: [92m2.67x[0m | VRAM: [92m2.4GB[0m | Audio: [92m0:01:33[0m
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 15.36it/s]100%|██████████| 2/2 [00:00<00:00, 15.34it/s]
+🌀 Chunk 20/64 | ⏱ Elapsed: [96m0:00:35[0m | ETA: [96m0:01:52[0m | Remaining: [93m0:01:17[0m | Realtime: [92m3.06x[0m | VRAM: [92m2.4GB[0m | Audio: [92m0:01:48[0m
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 14.66it/s]100%|██████████| 2/2 [00:00<00:00, 14.63it/s]
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 14.76it/s]100%|██████████| 2/2 [00:00<00:00, 14.71it/s]
+🌀 Chunk 25/64 | ⏱ Elapsed: [96m0:00:36[0m | ETA: [96m0:01:32[0m | Remaining: [93m0:00:56[0m | Realtime: [92m3.47x[0m | VRAM: [92m2.4GB[0m | Audio: [92m0:02:06[0m
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 13.27it/s]100%|██████████| 2/2 [00:00<00:00, 13.22it/s]
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 13.38it/s]100%|██████████| 2/2 [00:00<00:00, 13.36it/s]
+🌀 Chunk 30/64 | ⏱ Elapsed: [96m0:00:37[0m | ETA: [96m0:01:20[0m | Remaining: [93m0:00:42[0m | Realtime: [92m3.93x[0m | VRAM: [92m2.4GB[0m | Audio: [92m0:02:28[0m
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 13.11it/s]100%|██████████| 2/2 [00:00<00:00, 13.06it/s]
+🌀 Chunk 35/64 | ⏱ Elapsed: [96m0:00:38[0m | ETA: [96m0:01:10[0m | Remaining: [93m0:00:31[0m | Realtime: [92m4.53x[0m | VRAM: [92m2.4GB[0m | Audio: [92m0:02:53[0m
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|█████     | 1/2 [00:00<00:00,  9.05it/s]100%|██████████| 2/2 [00:00<00:00, 10.73it/s]
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|█████     | 1/2 [00:00<00:00,  8.56it/s]100%|██████████| 2/2 [00:00<00:00, 10.32it/s]
+🌀 Chunk 40/64 | ⏱ Elapsed: [96m0:00:40[0m | ETA: [96m0:01:04[0m | Remaining: [93m0:00:24[0m | Realtime: [92m5.18x[0m | VRAM: [92m2.4GB[0m | Audio: [92m0:03:29[0m
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|█████     | 1/2 [00:00<00:00,  8.84it/s]100%|██████████| 2/2 [00:00<00:00, 10.52it/s]
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|█████     | 1/2 [00:00<00:00,  8.14it/s]100%|██████████| 2/2 [00:00<00:00,  9.61it/s]
+🌀 Chunk 45/64 | ⏱ Elapsed: [96m0:00:42[0m | ETA: [96m0:01:00[0m | Remaining: [93m0:00:17[0m | Realtime: [92m5.85x[0m | VRAM: [92m2.4GB[0m | Audio: [92m0:04:08[0m
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|█████     | 1/2 [00:00<00:00,  8.11it/s]100%|██████████| 2/2 [00:00<00:00,  9.57it/s]
+🌀 Chunk 50/64 | ⏱ Elapsed: [96m0:00:43[0m | ETA: [96m0:00:55[0m | Remaining: [93m0:00:12[0m | Realtime: [92m6.66x[0m | VRAM: [92m2.4GB[0m | Audio: [92m0:04:50[0m
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|█████     | 1/2 [00:00<00:00,  8.05it/s]100%|██████████| 2/2 [00:00<00:00,  9.46it/s]
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|█████     | 1/2 [00:00<00:00,  7.52it/s]100%|██████████| 2/2 [00:00<00:00,  8.74it/s]
+🌀 Chunk 55/64 | ⏱ Elapsed: [96m0:00:46[0m | ETA: [96m0:00:53[0m | Remaining: [93m0:00:07[0m | Realtime: [92m7.25x[0m | VRAM: [92m2.4GB[0m | Audio: [92m0:05:33[0m
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|█████     | 1/2 [00:00<00:00,  7.09it/s]100%|██████████| 2/2 [00:00<00:00,  8.40it/s]
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|█████     | 1/2 [00:00<00:00,  6.78it/s]100%|██████████| 2/2 [00:00<00:00,  8.28it/s]100%|██████████| 2/2 [00:00<00:00,  8.01it/s]
+🌀 Chunk 60/64 | ⏱ Elapsed: [96m0:00:48[0m | ETA: [96m0:00:51[0m | Remaining: [93m0:00:03[0m | Realtime: [92m7.81x[0m | VRAM: [92m2.4GB[0m | Audio: [92m0:06:20[0m
+S3 Token -> Mel Inference...
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|█████     | 1/2 [00:00<00:00,  8.86it/s]100%|██████████| 2/2 [00:00<00:00, 10.43it/s]
+🌀 Chunk 64/64 | ⏱ Elapsed: [96m0:00:49[0m | ETA: [96m0:00:49[0m | Remaining: [93m0:00:00[0m | Realtime: [92m8.52x[0m | VRAM: [92m2.4GB[0m | Audio: [92m0:07:04[0m
+🔍 PERFORMANCE CALCULATION DEBUG:
+   Batch start time: 1784841496.0125089
+   Batch end time: 1784841545.809862
+   Total batch time: 49.80 seconds
+   Actual processing time: 49.80 seconds
+   Chunks processed: 64
+   Batch range: 1-64
+📊 CALCULATED PERFORMANCE: 1.29 it/s
+   Formula: 64 chunks ÷ 49.80 seconds = 1.29 it/s
+📊 Batch telemetry: calls=0, fallbacks=0 (API=0, generation=0), quality_rows=11, t3_sizes=[3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1], t3_padding=[11, 14, 9, 5, 8, 15, 17, 16, 5, 13, 8, 27, 13, 6, 7, 18, 8, 10, 3, 8, 20, 0], s3_sizes=[3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2], s3_workloads=[156, 204, 210, 243, 258, 336, 345, 387, 531, 585, 594, 624, 630, 672, 720, 765, 825, 606], s3_padding=[0.04487179487179487, 0.03431372549019608, 0.009523809523809525, 0.0411522633744856, 0.031007751937984496, 0.08035714285714286, 0.0, 0.00516795865633075, 0.10357815442561205, 0.008547008547008548, 0.003367003367003367, 0.020833333333333332, 0.0031746031746031746, 0.028273809523809524, 0.04027777777777778, 0.022222222222222223, 0.02666666666666667, 0.0462046204620462], sizes={'3': 21}, shape_groups=[3, 3, 3, 3, 3, 3, 3, 1], text_lengths=[[95, 98, 94], [107, 103, 93], [101, 104, 99], [106, 103, 99], [105, 107, 106], [102, 108, 106], [114, 106, 120], [118]], speech_lengths=[[558, 570, 582], [570, 588, 564], [642, 618, 558], [606, 624, 594], [636, 618, 594], [630, 642, 636], [612, 648, 636], [684, 636, 720]], eos=[[205, 189, 205], [221, 220, 227], [213, 205, 256], [215, 206, 287], [221, 286, 234], [279, 223, 255], [318, 236, 253], [303, None, 250]], fallback_reasons={'late_eos': 7, 'missing_eos': 3, 'incompatible_text_shape': 1}
+✅ Batch 1-64 completed.
+✅ Batch 1-64 completed (64 chunks)
+
+⏱️ TTS Processing Complete:
+   Raw T3/S3Gen window: 49.79 seconds
+   Elapsed Time: [96m0:00:49[0m
+   Audio Duration: [92m0:07:04[0m
+   Realtime Factor: [93m8.52x[0m
+
+💾 Saving WAV file...
+🚀 Converting to m4b with peak normalization...
+🚀 Converting to m4b with peak normalization and speed 1.0x...
+📼 FFmpeg (normalizing): time=00:00:24.74 | 23.31x realtime📼 FFmpeg (normalizing): time=00:00:53.84 | 34.45x realtime📼 FFmpeg (normalizing): time=00:01:20.93 | 39.22x realtime📼 FFmpeg (normalizing): time=00:01:47.34 | 41.87x realtime📼 FFmpeg (normalizing): time=00:02:13.63 | 43.64x realtime📼 FFmpeg (normalizing): time=00:02:41.53 | 45.30x realtime📼 FFmpeg (normalizing): time=00:03:07.94 | 46.23x realtime📼 FFmpeg (normalizing): time=00:03:36.23 | 47.34x realtime📼 FFmpeg (normalizing): time=00:04:03.37 | 48.04x realtime📼 FFmpeg (normalizing): time=00:04:29.73 | 48.46x realtime📼 FFmpeg (normalizing): time=00:04:57.64 | 49.04x realtime📼 FFmpeg (normalizing): time=00:05:25.54 | 49.54x realtime📼 FFmpeg (normalizing): time=00:05:53.15 | 49.93x realtime📼 FFmpeg (normalizing): time=00:06:21.44 | 50.36x realtime📼 FFmpeg (normalizing): time=00:06:49.64 | 52.36x realtime📼 FFmpeg (normalizing): time=00:07:04.28 | 54.23x realtime
+✅ Conversion with normalization complete.
+📝 Run log written to: Audiobook/Doctor Who_ The Edge of Destruction _240/run.log
+================================================================================
+🔍 ENTERING _release_global_tts_model()
+================================================================================
+🔍 Model type at cleanup: ChatterboxFlashTTS
+🔍 Model class module: chatterbox_flash.tts
+🔍 ALL model attributes (7): ['sr', 't3', 's3gen', 've', 'tokenizer', 'device', 'conds']
+🔍 Has t3: True
+   → t3 type: <class 'chatterbox_flash.model.ChatterboxFlashT3'>, is None: False
+🔍 Has s3gen: True
+   → s3gen type: <class 'chatterbox.models.s3gen.s3gen.S3Token2Wav'>, is None: False
+🔍 Has ve: True
+   → ve type: <class 'chatterbox.models.voice_encoder.voice_encoder.VoiceEncoder'>, is None: False
+================================================================================
+✅ Moved sub-models to CPU: t3, s3gen, ve
+🧹 Explicitly cleared model subcomponents
+🗑️ Deleted global TTS model object
+🧹 Performed aggressive CUDA cleanup
+📊 VRAM after cleanup - Allocated: 0.41 GiB, Reserved: 0.72 GiB
+✅ Model release completed - VRAM should be freed
+🧹 TTS Model explicitly released after all processing.
+✅ Conversion completed successfully
+🧹 Unloading TTS model from GPU memory...
+================================================================================
+🔍 ENTERING _release_global_tts_model()
+================================================================================
+🧹 Performed aggressive CUDA cleanup
+📊 VRAM after cleanup - Allocated: 0.00 GiB, Reserved: 0.01 GiB
+✅ Model release completed - VRAM should be freed
+✅ TTS model unloaded successfully

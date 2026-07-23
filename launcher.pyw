@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-ChatterboxTTS Windows Launcher
-First-run: installs PyTorch, transformers, and other dependencies (~2-3 GB)
-Subsequent runs: launches ChatterboxTTS GUI immediately
-Uses console output for progress feedback.
+ChatterboxTTS Windows Launcher.
+
+First run installs requirements.txt into bundled Python. Later runs launch GUI
+immediately. Console output stays visible for setup feedback.
 """
 import sys
 import os
@@ -93,7 +93,7 @@ def run_setup():
     print("on your internet speed.")
     print()
 
-    print("[1/3] Upgrading pip and installing uv...")
+    print("[1/2] Upgrading pip...")
     r = run_cmd(
         [str(BUNDLED_PYTHON), "-m", "pip", "install", "--upgrade", "pip"],
         "Upgrading pip"
@@ -101,51 +101,15 @@ def run_setup():
     if r.returncode != 0:
         print("  Warning: pip upgrade failed, continuing...")
 
-    r = run_cmd(
-        [str(BUNDLED_PYTHON), "-m", "pip", "install", "uv"],
-        "Installing uv"
-    )
-    if r.returncode != 0:
-        print("  FAILED: could not install uv. Check internet connection.")
-        input("\nPress Enter to exit...")
-        return False
-    UV_EXE = BUNDLED_PYTHON.parent / "Scripts" / "uv.exe"
-    if not UV_EXE.exists():
-        print(f"  FAILED: uv.exe not found at {UV_EXE} after install.")
-        input("\nPress Enter to exit...")
-        return False
+    print("[2/2] Installing requirements.txt...")
 
-    print("[2/3] Installing PyTorch, ChatterboxFlash, and dependencies...")
-
-    # Always uninstall first to bypass pip caching issues with wrong version
-    run_cmd(
-        [str(BUNDLED_PYTHON), "-m", "pip", "uninstall", "torch", "torchvision",
-         "torchaudio", "-y"],
-        "Clearing old PyTorch"
-    )
-
-    # chatterbox-tts (a dependency of chatterbox-flash) hard-pins torch==2.6.0,
-    # which conflicts with the torch==2.7.1 pin in requirements.txt (needed for
-    # RTX 50-series/Blackwell GPU support - older torch builds have no compiled
-    # kernels for that architecture at all). Plain pip silently picks whichever
-    # pin it resolves last; uv's --overrides forces our version to win instead,
-    # in one combined resolution covering torch + chatterbox-flash + everything
-    # else in requirements.txt together (not sequential pip calls, which is what
-    # let this conflict slip through silently in the first place).
-    overrides_path = INSTALL_DIR / "overrides.txt"
-    overrides_path.write_text("torch==2.7.1\ntorchaudio==2.7.1\n")
-
-    uv_cmd = [
-        str(UV_EXE), "pip", "install", "--python", str(BUNDLED_PYTHON),
-        "-r", str(REQUIREMENTS_TXT), "chatterbox-flash",
-        "--overrides", str(overrides_path),
-    ]
+    pip_cmd = [str(BUNDLED_PYTHON), "-m", "pip", "install", "-r", str(REQUIREMENTS_TXT)]
     if has_nvidia_gpu():
         print("  NVIDIA GPU detected - installing with CUDA 12.8 support...")
-        uv_cmd += ["--extra-index-url", "https://download.pytorch.org/whl/cu128"]
+        pip_cmd += ["--extra-index-url", "https://download.pytorch.org/whl/cu128"]
     else:
         print("  No GPU detected - installing CPU-only...")
-    r = run_cmd(uv_cmd, "Installing PyTorch + ChatterboxFlash")
+    r = run_cmd(pip_cmd, "Installing project requirements")
 
     if r.returncode != 0:
         print("  FAILED: Installation failed. Check internet connection.")
@@ -159,7 +123,14 @@ def run_setup():
         return False
     print("  PyTorch OK")
 
-    print("[3/3] Setup complete.")
+    print("  Creating .env from template if needed...")
+    env_file = INSTALL_DIR / ".env"
+    env_template = INSTALL_DIR / ".env.template"
+    if not env_file.exists() and env_template.exists():
+        env_file.write_text(env_template.read_text())
+        print("  .env created from template")
+
+    print("Setup complete.")
 
     SETUP_MARKER.write_text("ok")
     print()
@@ -215,10 +186,8 @@ def main():
     # Setup ffmpeg before launching GUI
     setup_ffmpeg()
 
-    # Launch GUI in subprocess with torch pre-imported
-    # Import torch BEFORE PyQt5 to avoid DLL initialization conflict on Windows
-    # ChatterboxFlash's classes come from properly pip/uv-installed packages in
-    # site-packages, not a local src/ tree - no extra sys.path entry needed.
+    # Launch GUI in subprocess with torch pre-imported.
+    # Import torch BEFORE PyQt5 to avoid DLL initialization conflict on Windows.
     bootstrap = (
         f"import sys; sys.path.insert(0, r'{INSTALL_DIR}'); "
         f"from dotenv import load_dotenv; load_dotenv(); "

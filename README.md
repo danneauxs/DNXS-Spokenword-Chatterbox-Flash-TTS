@@ -55,36 +55,28 @@ full-featured CLI are provided.
 
 - Python 3.10+
 - NVIDIA GPU with CUDA (recommended; CPU-only mode is supported)
-- ffmpeg (for M4B output and audio conversion)
 - `python3-venv` package (for virtual environment creation)
 
 ## Installation
 
 ### Automated (Recommended)
 
-The installer detects your CUDA version, creates a virtual environment, and
-installs the matching PyTorch build plus all dependencies:
+The installer creates a virtual environment, installs `requirements.txt`, and
+lets model checkpoints download on first run:
 
 ```bash
 chmod +x install.sh
-./install.sh    
+./install.sh
 ```
 
-****IMPORTANT:  after running install. There will be a .env File created.  You must edit this file and add your Hugging Face token.  On first run of the program, the chatterbox model will be downloaded from Huggingface. It will fail without this token.
+After install, edit `.env` and add your Hugging Face token. The first run will
+download model weights into your local cache.
 
 ### Manual
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-
-# Install PyTorch (adjust CUDA version as needed)
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
-
-# Install the local chatterbox package without pulling duplicate deps
-pip install -e . --no-deps
-
-# Install all remaining dependencies
 pip install -r requirements.txt
 ```
 
@@ -117,6 +109,15 @@ python3 chatterbox_gui.py
 ```
 
 Models are downloaded automatically from HuggingFace on first run.
+
+### Shareable Bundle
+
+To build a compressed source bundle with only runtime files:
+
+```bash
+chmod +x build/create_distribution.sh
+./build/create_distribution.sh
+```
 
 ## 
 

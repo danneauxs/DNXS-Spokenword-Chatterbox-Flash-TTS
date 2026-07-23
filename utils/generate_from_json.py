@@ -23,7 +23,7 @@ from config.config import *
 from modules.tts_engine import load_optimized_model, process_one_chunk
 from modules.file_manager import setup_book_directories, list_voice_samples, ensure_voice_sample_compatibility
 from wrapper.chunk_loader import load_chunks, load_metadata, merge_tts_params
-from chatterbox.tts_turbo import punc_norm
+from chatterbox_flash.text_norm import en_us_cleaner as punc_norm
 from modules.progress_tracker import log_chunk_progress, log_run
 
 def main():

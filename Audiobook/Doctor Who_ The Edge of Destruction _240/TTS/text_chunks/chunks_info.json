@@ -1,0 +1,1038 @@
+[
+  {
+    "_metadata": true,
+    "generation_timestamp": "2026-07-23 17:18:06",
+    "total_chunks": 64,
+    "tts_params": {
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    },
+    "voice_used": "Adam - 1950",
+    "audio_prompt_path": "/home/danno/MyApps/chatterbox (copy)/Voice_Samples/Adam - 1950.wav"
+  },
+  {
+    "index": 0,
+    "text": "For a heart-stopping few seconds, which to the four doomed travellers seemed Like hours, nothing happened. Ian and the Doctor looked nervously at each other. Had even the",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": -0.5106,
+    "sentiment_raw": -0.5106,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 1,
+    "text": "scanner screen with its strange sequence of images broken down too? Then finally—thankfully—the screen on the far wall flickered into life.",
+    "word_count": 21,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.5994,
+    "sentiment_raw": -0.5994,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 2,
+    "text": "Once again the picture of the Malvern Hills appeared, accompanied by the sound of birdsong. The Doctor and Ian looked expectantly over at Barbara and Susan by the",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 3,
+    "text": "doors. Slowly the doors opened, and the same searing white light flooded the control room once more.",
+    "word_count": 17,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 4,
+    "text": "Shielding their eyes from the glare Barbara and Susan peered out through the open doors.",
+    "word_count": 15,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 5,
+    "text": "'There's nothing there, Grandfather, nothing at all!' cried Susan, a touch of hysteria in her voice. 'It's just a wide, gaping, empty void!'",
+    "word_count": 23,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.4767,
+    "sentiment_raw": -0.4767,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 6,
+    "text": "Slowly the doors closed again and thudded shut. They all looked at the screen. As they expected, it was now showing a picture of the jungle world of",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 7,
+    "text": "Quinnius. Barbara and Susan came over to join the two men.",
+    "word_count": 11,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.296,
+    "sentiment_raw": 0.296,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 8,
+    "text": "'Barbara could be right, Doctor, it could be some sort of message,' said Ian.",
+    "word_count": 14,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 9,
+    "text": "'I am right!' retorted Barbara. 'You know I am. When the scanner shows us a good picture like the Malverns the doors open because it should be safe",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.8221,
+    "sentiment_raw": 0.8221,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 10,
+    "text": "for us to go outside. Then it shows us a terrible picture and the doors cloze again.'",
+    "word_count": 17,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.4767,
+    "sentiment_raw": -0.4767,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 11,
+    "text": "'But if it is a message what does this mean?' asked the Doctor and pointed to the scanner, where the picture of Quinnius had faded to be replaced",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 12,
+    "text": "by the unidentified planet turning in space. 'After Earth and Quinnius we have this sequence: a planet; a planet in a solar system, getting further and further away;",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 13,
+    "text": "and then a blinding flashing light!'",
+    "word_count": 6,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 14,
+    "text": "'And total destruction,' added Barbara, and turned her eyes away from the glare of the scanner screen. 'Unless…' She drew her companions' attentions to the closed double doors.",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": -0.6115,
+    "sentiment_raw": -0.6115,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 15,
+    "text": "'If I'm right, the doors are shut because what is outside now is hostile to us… Were the other pictures just clues? Could that picture on the scanner",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": -0.3818,
+    "sentiment_raw": -0.3818,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 16,
+    "text": "now be what's outside the Ship? Could that be the danger?'",
+    "word_count": 11,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.5803,
+    "sentiment_raw": -0.5803,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 17,
+    "text": "The Doctor's eyes suddenly blazed with understanding. He clapped his hands together in satisfaction.",
+    "word_count": 14,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.4404,
+    "sentiment_raw": 0.4404,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 18,
+    "text": "'Of course!' he cried triumphantly. 'It's all clear to me now: the pictures on the screen, everything! It's our journey—our journey to destruction!'",
+    "word_count": 23,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.3129,
+    "sentiment_raw": -0.3129,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 19,
+    "text": "'Hang on,' said Ian. 'You mean to say that we are heading on a course straight to that explosion?'",
+    "word_count": 19,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.2263,
+    "sentiment_raw": 0.2263,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 20,
+    "text": "'Yes,' said Barbara. 'And the tardis refused to destroy itself—so the defence mechanism stopped the Ship and it's been trying to tell us so ever since!'",
+    "word_count": 26,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.5848,
+    "sentiment_raw": -0.5848,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 21,
+    "text": "'Exactly!' said the Doctor. 'The tardis is ultimately unable to resist the overwhelming forces of that explosion; but it has stalled itself in the void, trying to delay",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": -0.6643,
+    "sentiment_raw": -0.6643,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 22,
+    "text": "for as long as possible that fatal moment when it must be finally and irrevocably destroyed!'",
+    "word_count": 16,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.7901,
+    "sentiment_raw": -0.7901,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 23,
+    "text": "The affirming clang which echoed throughout the room now was almost deafening. The floor beneath their feet shuddered violently, sending the four companions staggering off in all directions.",
+    "word_count": 28,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.6915,
+    "sentiment_raw": -0.6915,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 24,
+    "text": "'I know now,' cried the Doctor, as he leant against the safe part of the control konsole for support, 'I know!' He turned everyone's gaze t'wards the scanner",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.5093,
+    "sentiment_raw": 0.5093,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 25,
+    "text": "screen: the final sequence was repeating itself over and over again.",
+    "word_count": 11,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 26,
+    "text": "'I said it would take at the very least the force of an entire solar system to attract the power away from my Ship. And that is exactly",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.3612,
+    "sentiment_raw": 0.3612,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 27,
+    "text": "what is happening! We have arrived at the very beginning of all things!",
+    "word_count": 13,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 28,
+    "text": "'Outside the Ship, hydrogen atoms are rushing t'wards each other, fusing, coalescing, until mynoot little collections of matter are created. And so the process will go on and",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.2111,
+    "sentiment_raw": 0.2111,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 29,
+    "text": "on for millions of years until dust is formed. The dust then will eventually become solid entity—the birth of new suns and new planets. The mightiest force in",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.1531,
+    "sentiment_raw": 0.1531,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 30,
+    "text": "the history of creation beyond which the tardis cannot pass!'",
+    "word_count": 10,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.3382,
+    "sentiment_raw": 0.3382,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 31,
+    "text": "'You don't mean the Big Bang?' asked Barbara incredulously.",
+    "word_count": 9,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 32,
+    "text": "'No,' said the Doctor. 'I doubt whether even my machine would be capable of withstanding as well as it has done the forces generated by the creation of",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.5106,
+    "sentiment_raw": 0.5106,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 33,
+    "text": "the entire Universe; but the creation of a galaxy—of your galaxy—of the Milky Way!'",
+    "word_count": 14,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.4482,
+    "sentiment_raw": 0.4482,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 34,
+    "text": "'But, Doctor, how did we get here?' asked Jan. 'When we left the planet Skaro where did you ask the tardis to take us?' The Doctor hesitated. 'Think,",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": -0.5122,
+    "sentiment_raw": -0.5122,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 35,
+    "text": "Doctor, think!' he urged.",
+    "word_count": 4,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 36,
+    "text": "The Doctor paused for a moment. 'I had hoped to reach your planet Earth in the twentieth-century; the old man said. 'Skaro was in the future and so",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.4019,
+    "sentiment_raw": 0.4019,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 37,
+    "text": "I used the Fast Return switch.'",
+    "word_count": 6,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 38,
+    "text": "'The Fast Return switch? What's that?'",
+    "word_count": 6,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 39,
+    "text": "'It's a means whereby the tardis is supposed to retrace its previous journeys.'",
+    "word_count": 13,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 40,
+    "text": "'What do you mean \"supposed to\"?' asked Barbara.",
+    "word_count": 8,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 41,
+    "text": "'Exactly what I say, young lady,' snapped the Doctor. 'I've never used it before!'",
+    "word_count": 14,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 42,
+    "text": "'Don't you see, Doctor, you've sent us back too far! We've gone back past the Earth of nineteen sixty-three, we've even gone on back past prehistoric times!' Ian",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 43,
+    "text": "seized the old man by the shoulders. 'Doctor, show me that switch! Where is it?'",
+    "word_count": 15,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 44,
+    "text": "The Doctor peered down at the control konsole. 'I can't very well see it in this light,' he flustered.",
+    "word_count": 19,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.4644,
+    "sentiment_raw": -0.4644,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 45,
+    "text": "'It's near the scanner switch,' volunteered Susan.",
+    "word_count": 7,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 46,
+    "text": "'Of course!' said Barbara. 'The one part of the control konsole that the tardis kept safe for us! Only we were too stupid to realise!'",
+    "word_count": 25,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.3348,
+    "sentiment_raw": -0.3348,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 47,
+    "text": "'Doctor, hurry—we can't have much time left!' Ian reminded him.",
+    "word_count": 10,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 48,
+    "text": "'There! That's the one, said the Doctor and pointed down to a small, square-shaped button on one of the keyboards of the control panel.",
+    "word_count": 24,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 49,
+    "text": "'So how does it work?' Ian asked urgently.",
+    "word_count": 8,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 50,
+    "text": "'You merely press it down and—' The Doctor caught his breth as he examined the switch. 'It's stuck! I pressed it down and it hasn't released itself!'",
+    "word_count": 27,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.3786,
+    "sentiment_raw": -0.3786,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 51,
+    "text": "'You mean it's been on all this time?'",
+    "word_count": 8,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.0,
+    "sentiment_raw": 0.0,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 52,
+    "text": "'Yes, it must have been.'",
+    "word_count": 5,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.4019,
+    "sentiment_raw": 0.4019,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 53,
+    "text": "'Well, don't just stand there! Get it unstuck!'",
+    "word_count": 8,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.3987,
+    "sentiment_raw": 0.3987,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 54,
+    "text": "From out of his pockets the Doctor took a small screwdriver. Frantically he began to unscrew the panel which contained the keyboard. Around him Ian, Barbara and Susan",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": -0.2732,
+    "sentiment_raw": -0.2732,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 55,
+    "text": "watched with anxious eyes, holding there breth as the Doctor's aged fingers fumbled with the screwdriver.",
+    "word_count": 16,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.1779,
+    "sentiment_raw": -0.1779,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 56,
+    "text": "Finally the Doctor lifted up the panel and poked around in the interior workings of the mechanism. He jerked quickly with the screwdriver at the jammed button and",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": -0.128,
+    "sentiment_raw": -0.128,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 57,
+    "text": "with the most anxiously awaited click! in history, the control released itself.",
+    "word_count": 12,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.4335,
+    "sentiment_raw": -0.4335,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 58,
+    "text": "Like an old, forgotten friend the lights returned to the tardis control chamber, dispelling instantly the black shadows and illuminating the drawn and weary faces of the four",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.4019,
+    "sentiment_raw": 0.4019,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 59,
+    "text": "exhausted time-travellers. The tardis hummed almost joyously into life again, and in the centre of the control konsole the time rotor resumed its stately rise and fall.",
+    "word_count": 27,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.2748,
+    "sentiment_raw": 0.2748,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 60,
+    "text": "Close to collapse, Barbara threw herself gratefully into a chair and Ian clasped her hand firmly in support. By the konsole Susan hugged her grandfather and finally let",
+    "word_count": 28,
+    "boundary_type": "paragraph_continue",
+    "sentiment_compound": 0.8176,
+    "sentiment_raw": 0.8176,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 61,
+    "text": "flow the tears she had held back for so long.",
+    "word_count": 10,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.2263,
+    "sentiment_raw": -0.2263,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 62,
+    "text": "Released from their terrible nightmare at last everyone breethed a heartfelt sigh of relief.",
+    "word_count": 14,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": 0.5574,
+    "sentiment_raw": 0.5574,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  },
+  {
+    "index": 63,
+    "text": "For a long time no one said a word.",
+    "word_count": 9,
+    "boundary_type": "paragraph_end",
+    "sentiment_compound": -0.296,
+    "sentiment_raw": -0.296,
+    "tts_params": {
+      "exaggeration": 0.5,
+      "cfg_scale": 0.9,
+      "temperature": 0.3,
+      "num_steps": 5,
+      "time_shift_tau": 0.0,
+      "backend": "torch"
+    }
+  }
+]

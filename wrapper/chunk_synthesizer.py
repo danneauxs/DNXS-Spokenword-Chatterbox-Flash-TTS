@@ -165,7 +165,11 @@ def synthesize_chunk(chunk, index, book_name, audio_dir, revision=False, chunks_
             detection_method = "fallback_first_available"
         
         print(f"🎤 Using voice: {voice_name} (method: {detection_method})")
-        compatible_voice = ensure_voice_sample_compatibility(voice_path)
+        # Keep a canonical book-local voice copy for later repair selection.
+        compatible_voice = ensure_voice_sample_compatibility(
+            voice_path,
+            output_dir=Path(audio_dir).parent,
+        )
         
         # Get TTS parameters for this chunk and preserve metadata settings.
         metadata_params = {}

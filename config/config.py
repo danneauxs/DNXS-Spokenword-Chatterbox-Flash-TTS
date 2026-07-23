@@ -44,7 +44,7 @@ CYAN = "\033[96m"
 # ============================================================================
 MAX_CHUNK_WORDS = 28
 MIN_CHUNK_WORDS = 4
-CHUNKING_QUALITY = "Low"
+CHUNKING_QUALITY = "High"
 
 # ============================================================================
 # WORKER AND PERFORMANCE SETTINGS
@@ -169,9 +169,9 @@ DEFAULT_TEMPERATURE = 0.3
 DEFAULT_SEED = 0 # Random seed for generation. 0 means random.
 
 # Chatterbox-Flash's own generation parameters (block-diffusion decoder)
-DEFAULT_FLASH_NUM_STEPS = 10           # Max denoising steps per block (K)
-DEFAULT_FLASH_CFG_SCALE = 1.0          # Classifier-free guidance strength
-DEFAULT_FLASH_TIME_SHIFT_TAU = 0.1     # Early-decoding aggressiveness (0 disables)
+DEFAULT_FLASH_NUM_STEPS = 5           # Max denoising steps per block (K)
+DEFAULT_FLASH_CFG_SCALE = 0.9
+DEFAULT_FLASH_TIME_SHIFT_TAU = 0.0     # Early-decoding aggressiveness (0 disables)
 
 TTS_PARAM_MIN_NUM_STEPS = 1
 TTS_PARAM_MAX_NUM_STEPS = 30
@@ -196,9 +196,9 @@ BASE_TEMPERATURE = DEFAULT_TEMPERATURE    # Default: 0.7
 # --- Sensitivity ---
 # How much VADER's compound score affects each parameter.
 # Higher values mean more dramatic changes based on sentiment.
-VADER_EXAGGERATION_SENSITIVITY = 0.33  # Unchanged - exaggeration's range (0.1-0.75) didn't change
-VADER_CFG_SCALE_SENSITIVITY = 1.13     # Rescaled from 0.32 (old cfg_weight range 0.15-1.0) for cfg_scale's larger 0.0-3.0 range
-VADER_TEMPERATURE_SENSITIVITY = 0.19   # Rescaled from 0.3 for temperature's narrower 0.0-1.5 range (was 0.1-2.35)
+VADER_EXAGGERATION_SENSITIVITY = 0.33
+VADER_CFG_SCALE_SENSITIVITY = 1.13
+VADER_TEMPERATURE_SENSITIVITY = 0.19
 
 # --- Min/Max Clamps ---
 # Hard limits to prevent extreme, undesirable audio artifacts.
@@ -290,14 +290,6 @@ TTS_PRESETS = {
 }
 
 
-# ============================================================================
-# BATCH-BINNING SETTINGS FOR VADER PARAMETER OPTIMIZATION
-# ============================================================================
-# Enable batch-binning: rounds VADER parameters (exaggeration, cfg_scale, temperature)
-# to nearest 0.05 for better microbatching when VADER is enabled
-ENABLE_BATCH_BINNING = False          # Enable automatic parameter rounding for batch optimization (NEW) - Testing actual impact
-BATCH_BIN_PRECISION = 0.05           # Rounding precision (0.05 = round to nearest 0.05)
-
 # (Removed) Process isolation + CUDA MPS settings were pruned along with the
 # performance integrator/pipeline. No replacement flags are needed.
 
@@ -307,7 +299,10 @@ BATCH_BIN_PRECISION = 0.05           # Rounding precision (0.05 = round to neare
 # ============================================================================
 # (Legacy) Batch sizing kept for GUI compatibility; consider removing after GUI update
 BATCH_SIZE = 50000
-TTS_BATCH_SIZE = 32
+TTS_BATCH_SIZE = 3
+TTS_PIPELINE_MODE = "t3_batch"
+FLASH_EOS_TEXT_RATIO = 3.0
+FLASH_MIN_EOS_TOKENS = 96
 CLEANUP_INTERVAL = 500000                # Deep cleanup every N chunks (reduced frequency for speed)
 
 # ============================================================================
@@ -325,7 +320,7 @@ MAX_REGENERATION_ATTEMPTS = 3        # Maximum retry attempts per chunk
 QUALITY_THRESHOLD = 0.30            # TEMPORARILY LOWERED - Composite quality score threshold (0.0-1.0)
 
 # --- Sentiment Smoothing Settings ---
-ENABLE_SENTIMENT_SMOOTHING = True    # Re-enabled - GUI controls now working properly
+ENABLE_SENTIMENT_SMOOTHING = False    # Re-enabled - GUI controls now working properly
 SENTIMENT_SMOOTHING_WINDOW = 3       # Number of previous chunks to consider
 SENTIMENT_SMOOTHING_METHOD = "rolling"  # "rolling" or "exp_decay"
 
@@ -350,13 +345,13 @@ REGEN_CFG_ADJUSTMENT = 0.1           # How much to adjust cfg_scale per retry (i
 # TORCH.COMPILE OPTIMIZATION SETTINGS
 # ============================================================================
 
-ENABLE_TORCH_COMPILE = False                # Master enable/disable for torch.compile
+ENABLE_TORCH_COMPILE = True                # Master enable/disable for torch.compile
 
 # Component-specific compilation flags
-COMPILE_VOICE_ENCODER = False               # Compile voice encoder
-COMPILE_TTS_DECODER = False                 # Compile T3 text-to-speech decoder
-COMPILE_VOCODER = False                    # Compile S3Gen vocoder (start conservative)
-COMPILE_TEXT_PROCESSOR = False             # Compile text processing components
+COMPILE_VOICE_ENCODER = True               # Compile voice encoder
+COMPILE_TTS_DECODER = True                 # Compile T3 text-to-speech decoder
+COMPILE_VOCODER = True                    # Compile S3Gen vocoder (start conservative)
+COMPILE_TEXT_PROCESSOR = True             # Compile text processing components
 
 # Compilation settings
 TORCH_COMPILE_MODE = "default"             # default|reduce-overhead|max-autotune
@@ -375,16 +370,7 @@ TORCH_COMPILE_CACHE_DIR = "venv/.cache/torch_compile"  # Compilation cache direc
 ENABLE_COMPILATION_WARMUP = True           # Pre-compile models during initialization
 COMPILATION_WARMUP_SAMPLES = 3             # Number of warmup inference passes
 
-# Text chunk size bucketing for compilation optimization
-ENABLE_CHUNK_SIZE_BUCKETING = True         # Group similar chunk sizes for better compilation
-CHUNK_BUCKET_SHORT_RANGE = [50, 200]       # Character range for short chunks
-CHUNK_BUCKET_MEDIUM_RANGE = [200, 500]     # Character range for medium chunks
-CHUNK_BUCKET_LONG_RANGE = [500, 1000]      # Character range for long chunks
 
-# Cache and warmup settings
-TORCH_COMPILE_CACHE_DIR = "venv/.cache/torch_compile"  # Compilation cache directory
-ENABLE_COMPILATION_WARMUP = True           # Pre-compile models during initialization
-COMPILATION_WARMUP_SAMPLES = 3             # Number of warmup inference passes
 
 # ============================================================================
 # PROGRESS DISPLAY SETTINGS (Sep 14 Performance Optimization)
@@ -422,10 +408,6 @@ ENABLE_MIXED_PRECISION = True      # Use torch.cuda.amp for automatic mixed prec
 
 # Memory Management (prevent fragmentation on RTX 4060 Ti 8GB)
 PYTORCH_CUDA_ALLOC_CONF = "max_split_size_mb:128"  # Disable expandable_segments for allocator stability
-
-# Micro-batching (disable to run per-chunk only)
-ENABLE_MICRO_BATCHING = False
-ENABLE_VADER_MICRO_BATCHING = False    # Disable micro-batching even when VADER is enabled
 
 # ============================================================================
 # ASR REGENERATION SETTINGS

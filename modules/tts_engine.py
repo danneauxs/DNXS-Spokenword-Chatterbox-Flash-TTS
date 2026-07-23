@@ -31,6 +31,157 @@ from modules.punctuation_pauses import add_pause_tags_to_text
 _global_voice_cache = None
 _voice_cache_info = None
 _GPU_INFER_LOCK = threading.Lock()
+_BATCH_STATS_LOCK = threading.Lock()
+_BATCH_STATS = {
+    "batch_calls": 0,
+    "fallback_calls": 0,
+    "fallback_api_unavailable": 0,
+    "fallback_generation_error": 0,
+    "quality_fallback_rows": 0,
+    "batch_size_counts": {},
+    "t3_batch_sizes": [],
+    "t3_padding_tokens": [],
+    "t3_padding_waste": [],
+    "s3gen_batch_sizes": [],
+    "s3gen_padded_token_workloads": [],
+    "s3gen_padding_waste": [],
+    "text_token_lengths": [],
+    "compatible_shape_groups": [],
+    "speech_lengths": [],
+    "eos_positions": [],
+    "stage_timings": [],
+    "t3_queue_depth": [],
+    "s3gen_queue_depth": [],
+    "fallback_reasons": {},
+}
+
+
+def _new_generation_timing():
+    """Create thread-safe timing state for the raw T3/S3Gen window."""
+    return {
+        "lock": threading.Lock(),
+        "start_perf": None,
+        "start_wall": None,
+        "end_perf": None,
+    }
+
+
+def _mark_generation_start(timing):
+    """Start raw-generation timing once, immediately before first T3 work."""
+    if timing is None:
+        return
+    with timing["lock"]:
+        if timing["start_perf"] is None:
+            timing["start_perf"] = time.perf_counter()
+            timing["start_wall"] = time.time()
+
+
+def _mark_generation_end(timing):
+    """Record latest raw-generation completion after a WAV write."""
+    if timing is None:
+        return
+    with timing["lock"]:
+        now = time.perf_counter()
+        if timing["end_perf"] is None or now > timing["end_perf"]:
+            timing["end_perf"] = now
+
+
+def _generation_elapsed(timing):
+    """Return pure T3/S3Gen elapsed seconds through the last WAV write."""
+    if timing is None:
+        return 0.0
+    with timing["lock"]:
+        if timing["start_perf"] is None or timing["end_perf"] is None:
+            return 0.0
+        return max(0.0, timing["end_perf"] - timing["start_perf"])
+
+
+def _generation_start_wall(timing, fallback):
+    """Return raw-generation wall time for progress display."""
+    if timing is None:
+        return fallback
+    with timing["lock"]:
+        return timing["start_wall"] or fallback
+
+
+def _iter_bounded_future_results(executor, jobs, submit_job, max_pending):
+    """Submit jobs through a bounded future window and yield each result.
+
+    Args:
+        executor: Thread pool used to execute the jobs.
+        jobs: Iterable of job descriptors.
+        submit_job: Callable that submits one descriptor and returns a future.
+        max_pending: Maximum number of submitted but unfinished futures.
+
+    Yields:
+        Each completed job result in completion order.
+
+    Raises:
+        ValueError: If max_pending is not positive.
+    """
+    if max_pending < 1:
+        raise ValueError("max_pending must be positive")
+
+    pending = set()
+    job_iter = iter(jobs)
+
+    def fill_window():
+        """Fill pending work up to the configured backpressure limit."""
+        while len(pending) < max_pending:
+            try:
+                pending.add(submit_job(next(job_iter)))
+            except StopIteration:
+                break
+
+    fill_window()
+    while pending:
+        completed = next(as_completed(pending))
+        pending.remove(completed)
+        yield completed.result()
+        fill_window()
+
+
+def _record_batch_stat(name):
+    """Increment a batch-generation counter safely across worker threads."""
+    with _BATCH_STATS_LOCK:
+        _BATCH_STATS[name] = _BATCH_STATS.get(name, 0) + 1
+
+
+def _record_batch_observation(name, value):
+    """Append structured batch diagnostics without racing worker threads."""
+    with _BATCH_STATS_LOCK:
+        if name == "batch_size_counts":
+            key = str(int(value))
+            counts = _BATCH_STATS.setdefault(name, {})
+            counts[key] = counts.get(key, 0) + 1
+        elif name == "fallback_reasons":
+            counts = _BATCH_STATS.setdefault(name, {})
+            counts[value] = counts.get(value, 0) + 1
+        else:
+            _BATCH_STATS.setdefault(name, []).append(value)
+
+
+def _reset_batch_stats():
+    """Reset batch-generation counters at the start of a conversion run."""
+    with _BATCH_STATS_LOCK:
+        for name, value in list(_BATCH_STATS.items()):
+            if isinstance(value, dict):
+                _BATCH_STATS[name] = {}
+            elif isinstance(value, list):
+                _BATCH_STATS[name] = []
+            else:
+                _BATCH_STATS[name] = 0
+
+
+def _snapshot_batch_stats():
+    """Return a consistent copy of batch-generation counters for reporting."""
+    with _BATCH_STATS_LOCK:
+        return {
+            key: value.copy() if isinstance(value, dict)
+            else value.copy() if isinstance(value, list)
+            else value
+            for key, value in _BATCH_STATS.items()
+        }
 
 def clear_voice_cache():
     """Clear the global voice cache at start of new conversion"""
@@ -529,8 +680,7 @@ def prewarm_model_with_voice(model, voice_path, tts_params=None):
                 num_steps=tts_params.get('num_steps', DEFAULT_FLASH_NUM_STEPS),
                 cfg_scale=tts_params.get('cfg_scale', DEFAULT_FLASH_CFG_SCALE),
                 time_shift_tau=tts_params.get('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU),
-                # flashinfer's kernels are ABI-matched to torch 2.7.x; we're on
-                # 2.6.0 and "auto" would crash trying flashinfer - force torch SDPA.
+                # Use Torch SDPA explicitly for stable heterogeneous Flash decoding.
                 backend=tts_params.get('backend', 'torch'),
             )
 
@@ -596,6 +746,27 @@ def _wrap_t3_s3gen_timing(model):
             n_tokens = 0
         rate = n_tokens / elapsed if elapsed > 0 else 0.0
         print(f"🔵 T3 (block-diffusion): {n_tokens} speech tokens in {elapsed:.2f}s ({rate:.1f} tok/s)")
+        text_tokens = kwargs.get("text_tokens")
+        is_batch = isinstance(text_tokens, (list, tuple)) or (
+            torch.is_tensor(text_tokens) and text_tokens.ndim == 2
+            and int(text_tokens.shape[0]) > 1
+        )
+        if is_batch:
+            eos_token = getattr(getattr(model.t3, "hp", None), "stop_speech_token", None)
+            requested_lengths = kwargs.get("total_speech_len")
+            if isinstance(requested_lengths, (list, tuple)):
+                row_lengths = [int(length) for length in requested_lengths]
+            else:
+                row_lengths = [int(result.shape[-1])] * int(result.shape[0])
+            eos_positions = []
+            if eos_token is not None:
+                for row in result:
+                    hits = (row == eos_token).nonzero(as_tuple=True)[0]
+                    eos_positions.append(int(hits[0].item()) if len(hits) else None)
+            _record_batch_observation("batch_size_counts", int(result.shape[0]))
+            _record_batch_observation("speech_lengths", row_lengths)
+            _record_batch_observation("eos_positions", eos_positions)
+        _record_batch_observation("stage_timings", {"stage": "t3", "seconds": elapsed, "batch": is_batch})
         return result
 
     model.t3.generate = _timed_t3_generate
@@ -614,9 +785,197 @@ def _wrap_t3_s3gen_timing(model):
         elapsed = time.time() - t0
         rate = n_tokens / elapsed if elapsed > 0 else 0.0
         print(f"🟢 S3Gen (vocoder): {n_tokens} tokens vocoded in {elapsed:.2f}s ({rate:.1f} tok/s)")
+        _record_batch_observation(
+            "stage_timings",
+            {"stage": "s3gen", "seconds": elapsed, "tokens": n_tokens},
+        )
         return result
 
     model.s3gen.inference = _timed_s3gen_inference
+
+
+def _generate_flash_t3_tokens_with_quality_guard(
+    model, text_list, tts_args, staged_t3_only=False,
+    allow_mixed_lengths=False,
+):
+    """Generate and validate Flash T3 token rows before S3Gen.
+
+    The staged path keeps equal-shape groups for its existing conservative
+    behavior. The T3 Batch path can enable Flash's supported heterogeneous list
+    input, which internally pads different prefix lengths while preserving each
+    row's encoded length.
+
+    Args:
+        model: Prepared ChatterboxFlashTTS model.
+        text_list: Text rows to decode in one T3 batch.
+        tts_args: Shared Flash generation parameters.
+        staged_t3_only: Keep all work in T3 and never call combined
+            T3-to-audio generation for quality recovery.
+        allow_mixed_lengths: Send all encoded rows in one heterogeneous T3
+            batch instead of splitting by exact encoded length.
+
+    Returns:
+        Tuple containing validated token rows, fallback waveforms, and retry
+        reasons by input index.
+    """
+    from chatterbox_flash.tts import _speech_len_for_text_tokens
+
+    text_tokens = [
+        model._encode_text(text, normalize_text=tts_args.get("normalize_text", True))
+        for text in text_list
+    ]
+    speech_lens = [
+        _speech_len_for_text_tokens(int(tokens.size(1)))
+        for tokens in text_tokens
+    ]
+    t3_supported = {
+        "num_steps", "temperature", "time_shift_tau",
+        "omnivoice_schedule_t_shift", "cfg_scale", "position_temperature",
+        "pmi_uncond_prior_precompute", "use_cuda_graph", "backend",
+    }
+    stop_token = int(model.t3.hp.stop_speech_token)
+    token_rows = [None] * len(text_list)
+    fallback_waveforms = [None] * len(text_list)
+    retry_reasons = {}
+
+    single_supported = {
+        "exaggeration", "num_steps", "temperature", "time_shift_tau",
+        "omnivoice_schedule_t_shift", "cfg_scale", "position_temperature",
+        "pmi_uncond_prior_precompute", "use_cuda_graph", "backend",
+    }
+    single_args = {
+        key: value for key, value in tts_args.items() if key in single_supported
+    }
+
+    if allow_mixed_lengths:
+        groups = {0: list(range(len(text_tokens)))}
+    else:
+        groups = {}
+        for index, tokens in enumerate(text_tokens):
+            groups.setdefault(int(tokens.size(1)), []).append(index)
+    _record_batch_observation(
+        "text_token_lengths",
+        [int(tokens.size(1)) for tokens in text_tokens],
+    )
+
+    for indices in groups.values():
+        _record_batch_observation("compatible_shape_groups", len(indices))
+        encoded_lengths = [int(text_tokens[index].size(1)) for index in indices]
+        max_encoded_length = max(encoded_lengths)
+        padding_tokens = (
+            len(indices) * max_encoded_length - sum(encoded_lengths)
+        )
+        _record_batch_observation("t3_batch_sizes", len(indices))
+        _record_batch_observation("t3_padding_tokens", padding_tokens)
+        _record_batch_observation(
+            "t3_padding_waste",
+            padding_tokens / (len(indices) * max_encoded_length)
+            if max_encoded_length > 0 else 0.0,
+        )
+        if len(indices) == 1 and not staged_t3_only:
+            # A singleton cannot benefit from dense batching; use proven
+            # single-item generation rather than entering ragged mode.
+            index = indices[0]
+            retry_reasons[index] = "incompatible_text_shape"
+            fallback_waveforms[index] = model.generate(text_list[index], **single_args)
+            continue
+
+        group_tokens = [text_tokens[index] for index in indices]
+        group_speech_len = [speech_lens[index] for index in indices]
+        batch_args = {
+            key: value for key, value in tts_args.items() if key in t3_supported
+        }
+        batch_args.update({
+            "t3_cond": [model.conds.t3] * len(indices),
+            "text_tokens": group_tokens,
+            # Flash's heterogeneous list path retains each row's true prefix
+            # length and pads the prefix state internally for one T3 call.
+            "text_token_lens": None,
+            "total_speech_len": group_speech_len,
+        })
+        speech_tokens_batch = model.t3.generate(**batch_args)
+
+        for row_index, index in enumerate(indices):
+            speech_len = speech_lens[index]
+            row = speech_tokens_batch[row_index, :speech_len]
+            eos_positions = (row == stop_token).nonzero(as_tuple=True)[0]
+            eos_position = int(eos_positions[0].item()) if len(eos_positions) else None
+            # A late EOS indicates a repeated tail even when the decoder
+            # technically emitted EOS, so recover through single generation.
+            late_eos_limit = max(
+                FLASH_MIN_EOS_TOKENS,
+                int(text_tokens[index].size(1) * FLASH_EOS_TEXT_RATIO),
+            )
+            if eos_position is None:
+                if staged_t3_only:
+                    # Staged mode must retain T3 output for later S3Gen rather
+                    # than calling combined model.generate as recovery.
+                    token_rows[index] = model._trim_to_eos(row)
+                    retry_reasons[index] = "missing_eos_retained"
+                else:
+                    retry_reasons[index] = "missing_eos"
+                continue
+            if eos_position > late_eos_limit:
+                if staged_t3_only:
+                    token_rows[index] = model._trim_to_eos(row)
+                    retry_reasons[index] = "late_eos_retained"
+                else:
+                    retry_reasons[index] = "late_eos"
+                continue
+            token_rows[index] = model._trim_to_eos(row)
+
+    for index in retry_reasons:
+        if fallback_waveforms[index] is not None or token_rows[index] is not None:
+            continue
+        if staged_t3_only:
+            raise RuntimeError(
+                f"Staged T3 produced no retained row for input index {index}"
+            )
+        fallback_waveforms[index] = model.generate(text_list[index], **single_args)
+    return token_rows, fallback_waveforms, retry_reasons
+
+
+def _generate_flash_batch_with_quality_guard(
+    model, text_list, tts_args, allow_mixed_lengths=False,
+):
+    """Generate Flash rows while preserving the current S3Gen behavior.
+
+    T3 token production is kept separate inside this function so a later
+    scheduler can consume token rows without changing quality fallback rules.
+    This step still sends each validated row to S3Gen immediately.
+
+    Args:
+        model: Prepared ChatterboxFlashTTS model.
+        text_list: Text rows to decode in one T3 batch.
+        tts_args: Shared Flash generation parameters.
+        allow_mixed_lengths: Enable heterogeneous encoded-length T3 batching.
+
+    Returns:
+        Tuple containing waveforms in input order and retry reasons by index.
+    """
+    if not all(
+        hasattr(model, attribute)
+        for attribute in ("t3", "s3gen", "_encode_text", "_trim_to_eos")
+    ):
+        # Preserve compatibility with non-Flash models exposing only the
+        # legacy generate_batch API.
+        return model.generate_batch(text_list, **tts_args), {}
+
+    token_rows, waveforms, retry_reasons = _generate_flash_t3_tokens_with_quality_guard(
+        model, text_list, tts_args,
+        allow_mixed_lengths=allow_mixed_lengths,
+    )
+    for index, token_row in enumerate(token_rows):
+        if token_row is None:
+            continue
+        row = token_row.unsqueeze(0)
+        wav, _ = model.s3gen.inference(
+            speech_tokens=row.to(model.device),
+            ref_dict=model.conds.gen,
+            n_cfm_timesteps=tts_args.get("n_cfm_timesteps", 2),
+        )
+        waveforms[index] = wav.detach().cpu().squeeze(0)
+    return waveforms, retry_reasons
 
 
 def load_optimized_model(device, *, force_reload: bool = False):
@@ -632,15 +991,6 @@ def load_optimized_model(device, *, force_reload: bool = False):
         load_dotenv()
     except ImportError:
         pass
-
-    # Point at the CUDA 12.8 toolkit for flashinfer's JIT kernel compile
-    # (the system default /usr/bin/nvcc is CUDA 12.0, too old for flashinfer's
-    # prebuilt-ABI assumptions). Harmless when backend='torch' is selected -
-    # torch's own SDPA path doesn't invoke nvcc at all.
-    _cuda_128 = "/usr/local/cuda-12.8"
-    if os.path.isdir(_cuda_128) and _cuda_128 not in os.environ.get("PATH", ""):
-        os.environ["CUDA_HOME"] = _cuda_128
-        os.environ["PATH"] = f"{_cuda_128}/bin:{os.environ.get('PATH', '')}"
 
     from chatterbox_flash.tts import ChatterboxFlashTTS
     from config.config import CHATTERBOX_CKPT_DIR
@@ -708,11 +1058,8 @@ def load_optimized_model(device, *, force_reload: bool = False):
     except Exception as e:
         logging.warning(f"⚠️ Could not attach T3/S3Gen timing wrappers: {e}")
 
-    # NOTE: Turbo's real_tts_optimizer (torch.compile on model.t3/.s3gen
-    # forward) is intentionally NOT applied here. Flash has its own internal
-    # optimization/backend selection (torch/flashinfer/CUDA-graph) chosen per
-    # generate() call; wrapping its forward externally would fight that
-    # rather than help it.
+    # NOTE: Turbo's real_tts_optimizer is intentionally not applied here.
+    # Wrapping Flash internals externally can interfere with decoder caching.
 
     _GLOBAL_TTS_MODEL = model
     _GLOBAL_TTS_MODEL_DEVICE = device
@@ -782,7 +1129,8 @@ def process_batch(
     voice_path, tts_params, start_time, total_chunks,
     punc_norm, basename, log_run_func, log_path, device,
     model, asr_model, seed=0,
-    enable_asr=None, asr_client=None
+    enable_asr=None, asr_client=None, generation_timing=None,
+    allow_mixed_lengths=True
 ):
     """Process a batch of chunks using the batch-enabled TTS model.
     Args:
@@ -802,10 +1150,13 @@ def process_batch(
     asr_model: ASR model instance.
     seed (int, optional): Seed for random operations. Default is 0.
     enable_asr (bool, optional): Flag to enable ASR. Default is None.
-    asr_client: ASR client instance.
+        asr_client: ASR client instance.
+        generation_timing (dict, optional): Shared raw-generation timing state.
+        allow_mixed_lengths: Enable heterogeneous encoded-length T3 batches.
     Returns:
     None
     """
+    _record_batch_stat("batch_calls")
     if seed != 0:
         set_seed(seed)
     """
@@ -828,26 +1179,24 @@ def process_batch(
     tts_args = {k: v for k, v in shared_tts_params.items() if k in flash_supported_params}
     tts_args.setdefault('num_steps', DEFAULT_FLASH_NUM_STEPS)
     tts_args.setdefault('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU)
-    # flashinfer's kernels are ABI-matched to torch 2.7.x; we're on 2.6.0
-    # (chatterbox-tts's hard pin). "auto" would silently try flashinfer and
-    # crash - force torch SDPA until the torch version issue is resolved.
+    # Keep Torch SDPA explicit so batch behavior is reproducible across hosts.
     tts_args.setdefault('backend', 'torch')
 
     # 2. Generate audio in a batch (heuristic: only if lengths are similar and group size >1)
     try_batch = True
-    # Determine once per run whether the model supports a batch API
+    # Flash has an internal T3 batch path even though its public model object
+    # does not expose the legacy generate_batch method.
     global _BATCH_API_SUPPORTED
-    if _BATCH_API_SUPPORTED is None:
+    is_flash_model = all(
+        hasattr(model, attribute)
+        for attribute in ("t3", "s3gen", "_encode_text", "_trim_to_eos")
+    )
+    if is_flash_model:
+        _BATCH_API_SUPPORTED = True
+    elif _BATCH_API_SUPPORTED is None:
         _BATCH_API_SUPPORTED = hasattr(model, 'generate_batch')
     if not _BATCH_API_SUPPORTED:
         try_batch = False
-    # Honor config flag to disable micro-batching completely
-    try:
-        from config import config as _cfg
-        if hasattr(_cfg, 'ENABLE_MICRO_BATCHING') and not _cfg.ENABLE_MICRO_BATCHING:
-            try_batch = False
-    except Exception:
-        pass
     try:
         # Heuristic using character lengths as a proxy for token length
         lens = [len(t) for t in texts]
@@ -868,6 +1217,36 @@ def process_batch(
             with torch.no_grad():
                 # Try full batch with OOM backoff
                 import gc as _gc
+
+                def generate_text_batch(text_list):
+                    """Generate one conditioned Flash batch under GPU serialization."""
+                    batch_args = dict(tts_args)
+                    # CUDA graph capture is unsafe for heterogeneous prefix and
+                    # speech lengths on some Flash runtimes. Torch backend is
+                    # current production default; keep this override explicit
+                    # so comparisons can turn it on without source changes.
+                    batch_args["use_cuda_graph"] = os.environ.get(
+                        "GENTTS_FLASH_BATCH_CUDA_GRAPHS", "0",
+                    ) == "1"
+                    conditionals = getattr(model, "conds", None)
+                    if conditionals is not None:
+                        batch_args["conds_list"] = [conditionals] * len(text_list)
+                    elif voice_path:
+                        batch_args["audio_prompt_paths"] = [voice_path] * len(text_list)
+                    else:
+                        raise RuntimeError("Flash batch requires prepared voice conditionals")
+                    logging.info("Flash generate_batch size=%s", len(text_list))
+                    with _GPU_INFER_LOCK:
+                        _mark_generation_start(generation_timing)
+                        waveforms, retry_reasons = _generate_flash_batch_with_quality_guard(
+                            model, text_list, batch_args,
+                            allow_mixed_lengths=allow_mixed_lengths,
+                        )
+                    for reason in retry_reasons.values():
+                        _record_batch_stat("quality_fallback_rows")
+                        _record_batch_observation("fallback_reasons", reason)
+                    return waveforms
+
                 def gen_with_backoff(text_list):
                     """Generates audio from a list of texts using exponential backoff.
                     Args:
@@ -881,12 +1260,12 @@ def process_batch(
                     while bs >= 1:
                         try:
                             if bs == size:
-                                return model.generate_batch(text_list, **tts_args)
+                                return generate_text_batch(text_list)
                             else:
                                 results.clear()
                                 for j in range(0, size, bs):
                                     subtexts = text_list[j:j+bs]
-                                    subwavs = model.generate_batch(subtexts, **tts_args)
+                                    subwavs = generate_text_batch(subtexts)
                                     results.extend(subwavs)
                                 return results
                         except RuntimeError as _e:
@@ -899,6 +1278,7 @@ def process_batch(
                                     pass
                                 _gc.collect()
                                 new_bs = max(1, bs // 2)
+                                _record_batch_observation("fallback_reasons", "cuda_oom_backoff")
                                 logging.warning(f"⚠️ CUDA OOM at microbatch={bs}. Retrying with {new_bs}.")
                                 if new_bs == bs:
                                     # Cannot reduce further
@@ -912,10 +1292,16 @@ def process_batch(
             # Model has no batch API; disable for this run and fall back
             _BATCH_API_SUPPORTED = False
             try_batch = False
+            _record_batch_stat("fallback_calls")
+            _record_batch_stat("fallback_api_unavailable")
+            _record_batch_observation("fallback_reasons", "api_unavailable")
             logging.warning(f"Batch API unavailable on model; falling back to per‑chunk. Reason: {e}")
         except Exception as e:
             # Other failures: fall back this time but keep batch enabled for future groups
             try_batch = False
+            _record_batch_stat("fallback_calls")
+            _record_batch_stat("fallback_generation_error")
+            _record_batch_observation("fallback_reasons", type(e).__name__)
             logging.warning(f"Batch generation failed; using per‑chunk for this group. Reason: {e}")
 
     if not try_batch:
@@ -926,7 +1312,7 @@ def process_batch(
             chunk = chunk_data['text']
             boundary_type = chunk_data.get("boundary_type", "none")
             chunk_tts_params = chunk_data.get("tts_params", tts_params)
-            result = process_one_chunk(i, chunk, text_chunks_dir, audio_chunks_dir, voice_path, chunk_tts_params, start_time, total_chunks, punc_norm, basename, log_run_func, log_path, device, model, asr_model, boundary_type=boundary_type, enable_asr=enable_asr, asr_client=asr_client)
+            result = process_one_chunk(i, chunk, text_chunks_dir, audio_chunks_dir, voice_path, chunk_tts_params, start_time, total_chunks, punc_norm, basename, log_run_func, log_path, device, model, asr_model, boundary_type=boundary_type, enable_asr=enable_asr, asr_client=asr_client, generation_timing=generation_timing)
             results.append(result)
         return results
 
@@ -935,43 +1321,181 @@ def process_batch(
     batch_results = []
     for i, wav_tensor in enumerate(wavs):
         chunk_data = batch[i]
-        chunk_index = chunk_data['index']
-        boundary_type = chunk_data.get("boundary_type", "none")
-        chunk_id_str = f"{chunk_index+1:05}"
-
-        if wav_tensor.dim() == 1:
-            wav_tensor = wav_tensor.unsqueeze(0)
-
-        wav_np = wav_tensor.squeeze().cpu().numpy()
-        with io.BytesIO() as wav_buffer:
-            sf.write(wav_buffer, wav_np, model.sr, format='wav')
-            wav_buffer.seek(0)
-            audio_segment = AudioSegment.from_wav(wav_buffer)
-
-        # Apply trimming and contextual silence
-        from modules.audio_processor import process_audio_with_trimming_and_silence, trim_audio_endpoint
-        if boundary_type and boundary_type != "none":
-            final_audio = process_audio_with_trimming_and_silence(audio_segment, boundary_type)
-        elif ENABLE_AUDIO_TRIMMING:
-            final_audio = trim_audio_endpoint(audio_segment)
-        else:
-            final_audio = audio_segment
-
-        # Final save
-        final_path = audio_chunks_dir / f"chunk_{chunk_id_str}.wav"
-        final_audio.export(final_path, format="wav")
-        logging.info(f"✅ Saved final chunk from batch: {final_path.name}")
-
+        chunk_index, final_path = _save_generated_waveform(
+            wav_tensor, chunk_data, audio_chunks_dir, model,
+            generation_timing=generation_timing,
+        )
         batch_results.append((chunk_index, final_path))
 
     return batch_results
+
+
+def _save_generated_waveform(wav_tensor, chunk_data, audio_chunks_dir, model,
+                             generation_timing=None):
+    """Apply standard audio cleanup and save one generated waveform.
+
+    Args:
+        wav_tensor: Generated waveform tensor.
+        chunk_data: Chunk metadata containing index and boundary type.
+        audio_chunks_dir: Destination directory for chunk WAV files.
+        model: TTS model supplying the output sample rate.
+        generation_timing (dict, optional): Shared raw-generation timing state.
+
+    Returns:
+        Tuple of chunk index and saved path.
+    """
+    from pydub import AudioSegment
+    import io
+    import soundfile as sf
+
+    chunk_index = chunk_data['index']
+    boundary_type = chunk_data.get("boundary_type", "none")
+    chunk_id_str = f"{chunk_index+1:05}"
+    if wav_tensor.dim() == 1:
+        wav_tensor = wav_tensor.unsqueeze(0)
+
+    wav_np = wav_tensor.squeeze().cpu().numpy()
+    with io.BytesIO() as wav_buffer:
+        sf.write(wav_buffer, wav_np, model.sr, format='wav')
+        wav_buffer.seek(0)
+        audio_segment = AudioSegment.from_wav(wav_buffer)
+
+    from modules.audio_processor import process_audio_with_trimming_and_silence, trim_audio_endpoint
+    if boundary_type and boundary_type != "none":
+        final_audio = process_audio_with_trimming_and_silence(audio_segment, boundary_type)
+    elif ENABLE_AUDIO_TRIMMING:
+        final_audio = trim_audio_endpoint(audio_segment)
+    else:
+        final_audio = audio_segment
+
+    final_path = audio_chunks_dir / f"chunk_{chunk_id_str}.wav"
+    final_audio.export(final_path, format="wav")
+    _mark_generation_end(generation_timing)
+    logging.info(f"✅ Saved final chunk from batch: {final_path.name}")
+    return chunk_index, final_path
+
+
+def process_flash_t3_batch(batch, tts_params, model, voice_path,
+                           generation_timing=None, staged_t3_only=True,
+                           allow_mixed_lengths=False):
+    """Run one Flash T3 batch and retain validated token rows.
+
+    Args:
+        batch: Chunk dictionaries to send through T3.
+        tts_params: Shared TTS parameters for the batch.
+        model: Prepared ChatterboxFlashTTS model.
+        voice_path: Voice identifier used to keep scheduler groups separate.
+        generation_timing (dict, optional): Shared raw-generation timing state.
+        staged_t3_only: Keep T3 output when quality checks fail instead of
+            invoking combined model.generate fallback.
+        allow_mixed_lengths: Use one heterogeneous T3 batch for this input.
+
+    Returns:
+        Dictionary containing retained rows, fallback waveforms, and reasons.
+    """
+    from modules.s3gen_scheduler import RetainedT3Row
+
+    shared_tts_params = batch[0].get("tts_params", tts_params)
+    flash_supported_params = {
+        "temperature", "num_steps", "cfg_scale", "time_shift_tau",
+        "exaggeration", "audio_prompt_path", "backend",
+    }
+    tts_args = {
+        key: value for key, value in shared_tts_params.items()
+        if key in flash_supported_params
+    }
+    tts_args.setdefault('num_steps', DEFAULT_FLASH_NUM_STEPS)
+    tts_args.setdefault('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU)
+    tts_args.setdefault('backend', 'torch')
+    text_list = [chunk_data['text'] for chunk_data in batch]
+
+    with torch.no_grad(), _GPU_INFER_LOCK:
+        _mark_generation_start(generation_timing)
+        token_rows, fallback_waveforms, retry_reasons = (
+            _generate_flash_t3_tokens_with_quality_guard(
+                model,
+                text_list,
+                tts_args,
+                staged_t3_only=staged_t3_only,
+                allow_mixed_lengths=allow_mixed_lengths,
+            )
+        )
+
+    for reason in retry_reasons.values():
+        _record_batch_stat("quality_fallback_rows")
+        _record_batch_observation("fallback_reasons", reason)
+
+    retained_rows = []
+    fallback_results = []
+    conditioning_key = str(voice_path or "default")
+    for index, chunk_data in enumerate(batch):
+        token_row = token_rows[index]
+        fallback_waveform = fallback_waveforms[index]
+        if token_row is not None:
+            retained_rows.append(
+                RetainedT3Row(
+                    chunk_index=chunk_data['index'],
+                    speech_tokens=token_row.detach().cpu(),
+                    conditioning_key=conditioning_key,
+                    conditioning=model.conds.gen,
+                    n_cfm_timesteps=tts_args.get("n_cfm_timesteps", 2),
+                )
+            )
+        elif fallback_waveform is not None:
+            fallback_results.append(
+                (chunk_data, fallback_waveform.detach().cpu())
+            )
+        else:
+            raise RuntimeError(
+                f"T3 produced no token row or fallback waveform for chunk "
+                f"{chunk_data['index']}"
+            )
+    return {
+        "retained_rows": retained_rows,
+        "fallback_results": fallback_results,
+        "retry_reasons": retry_reasons,
+    }
+
+
+def process_flash_s3gen_batch(model, s3gen_batch):
+    """Run one scheduled padded S3Gen batch under GPU serialization.
+
+    Args:
+        model: Prepared ChatterboxFlashTTS model.
+        s3gen_batch: Padded batch from the retained-token scheduler.
+
+    Returns:
+        List of chunk-index and CPU waveform pairs.
+    """
+    from modules.s3gen_scheduler import run_padded_s3gen_batch
+
+    padded_tokens = int(s3gen_batch.speech_tokens.numel())
+    true_tokens = int(s3gen_batch.speech_token_lens.sum().item())
+    _record_batch_observation(
+        "s3gen_batch_sizes", len(s3gen_batch.rows)
+    )
+    _record_batch_observation(
+        "s3gen_padded_token_workloads", padded_tokens
+    )
+    _record_batch_observation(
+        "s3gen_padding_waste",
+        (padded_tokens - true_tokens) / padded_tokens
+        if padded_tokens > 0 else 0.0,
+    )
+
+    with torch.inference_mode(), _GPU_INFER_LOCK:
+        waveforms = run_padded_s3gen_batch(model, s3gen_batch)
+    return [
+        (row.chunk_index, waveform)
+        for row, waveform in zip(s3gen_batch.rows, waveforms)
+    ]
 
 def process_one_chunk(
     i, chunk, text_chunks_dir, audio_chunks_dir,
     voice_path, tts_params, start_time, total_chunks,
     punc_norm, basename, log_run_func, log_path, device,
     model, asr_model, seed=0, boundary_type="none",
-    enable_asr=None, asr_client=None
+    enable_asr=None, asr_client=None, generation_timing=None
 ):
     """Enhances processing of a single audio chunk by applying quality control, contextual silence removal, and deep cleanup.
     Args:
@@ -992,6 +1516,7 @@ def process_one_chunk(
     asr_model (object): Automatic speech recognition model.
     seed (int, optional): Seed for random number generation. Defaults to 0.
     boundary_type (str, optional): Type of boundary detection. Defaults to "none".
+    generation_timing (dict, optional): Shared raw-generation timing state.
     """
     if seed != 0:
         set_seed(seed)
@@ -1110,10 +1635,7 @@ def process_one_chunk(
             tts_args = {k: v for k, v in current_tts_params.items() if k in flash_supported_params}
             tts_args.setdefault('num_steps', DEFAULT_FLASH_NUM_STEPS)
             tts_args.setdefault('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU)
-            # flashinfer's kernels are ABI-matched to torch 2.7.x; we're on 2.6.0
-            # (chatterbox-tts's hard pin). "auto" would silently try flashinfer
-            # and crash (AttributeError: shared_memory_per_block_optin) -
-            # force torch SDPA until the torch version issue is resolved.
+            # Keep Torch SDPA explicit for stable single-item fallback behavior.
             tts_args.setdefault('backend', 'torch')
 
             chunk_start_time = time.time()
@@ -1121,6 +1643,7 @@ def process_one_chunk(
                 with torch.no_grad():
                     # Serialize GPU inference to prevent CUDA allocator internal asserts under multithreading
                     with _GPU_INFER_LOCK:
+                        _mark_generation_start(generation_timing)
                         wav = model.generate(chunk, **tts_args).detach().cpu()
             except RuntimeError as e:
                 if "probability tensor contains either" in str(e):
@@ -1229,6 +1752,7 @@ def process_one_chunk(
     # Final save - only disk write in entire process
     final_path = audio_chunks_dir / f"chunk_{chunk_id_str}.wav"
     final_audio.export(final_path, format="wav")
+    _mark_generation_end(generation_timing)
     logging.info(f"✅ Saved final chunk: {final_path.name}")
     
     # Submit to ASR client for concurrent validation (if enabled)
@@ -1499,53 +2023,30 @@ def generate_enriched_chunks(text_file, output_dir, user_tts_params=None, qualit
 
     return enriched
 
-def create_parameter_microbatches(chunks):
-    """Group chunks by their rounded TTS parameters for micro-batching efficiency."""
-    from collections import defaultdict
+def split_length_compatible_batches(chunks, max_batch_size, length_ratio=1.8):
+    """Group chunks into bounded batches with compatible text lengths."""
+    if max_batch_size < 1:
+        raise ValueError("max_batch_size must be positive")
 
-    # Group chunks by their TTS parameter combination
-    parameter_groups = defaultdict(list)
-
-    for chunk in chunks:
-        if isinstance(chunk, dict) and 'tts_params' in chunk:
-            tts_params = chunk['tts_params']
-
-            # Create parameter key from rounded values
-            param_key = (
-                tts_params.get('exaggeration', 0.5),
-                tts_params.get('cfg_scale', 1.0),
-                tts_params.get('temperature', 0.85),
-                tts_params.get('num_steps', DEFAULT_FLASH_NUM_STEPS),
-                tts_params.get('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU),
-                tts_params.get('backend', 'torch'),
-            )
-        else:
-            # Default parameters for chunks without specific TTS params
-            param_key = (0.5, 1.0, 0.85, DEFAULT_FLASH_NUM_STEPS, DEFAULT_FLASH_TIME_SHIFT_TAU, 'torch')
-
-        parameter_groups[param_key].append(chunk)
-
-    # Convert groups to list of batches
-    chunk_batches = []
-    for param_key, chunks_in_group in parameter_groups.items():
-        exag, cfg, temp, num_steps, time_shift_tau, backend = param_key
-        print(f"  📦 Micro-batch: {len(chunks_in_group)} chunks with params (exag={exag}, cfg={cfg}, temp={temp})")
-
-        # SORT BY LENGTH - THE MISSING PIECE
-        chunks_in_group.sort(key=lambda c: len(c.get('text', '')))
-
-        # Split large groups into smaller batches to avoid memory issues
-        # Use smaller microbatch when CFG is enabled (effective 2×B)
-        max_microbatch_size = 4 if (float(cfg) > 0.0) else 8
-        for i in range(0, len(chunks_in_group), max_microbatch_size):
-            batch = chunks_in_group[i:i + max_microbatch_size]
-            chunk_batches.append(batch)
-
-    return chunk_batches
+    batches = []
+    current = []
+    for chunk in sorted(chunks, key=lambda item: len(item.get("text", ""))):
+        length = len(chunk.get("text", ""))
+        current_min = len(current[0].get("text", "")) if current else length
+        exceeds_ratio = length / max(1, current_min) > length_ratio
+        if current and (len(current) >= max_batch_size or exceeds_ratio):
+            batches.append(current)
+            current = []
+        current.append(chunk)
+    if current:
+        batches.append(current)
+    return batches
 
 def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=False, enable_asr=None,
                         quality_params=None, config_params=None, specific_text_file=None, asr_threshold=None):
     """Enhanced book processing with batch processing to prevent hangs"""
+
+    _reset_batch_stats()
 
     model = None # Initialize model to None to ensure it's always defined
 
@@ -1675,13 +2176,6 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
             except Exception as _e:
                 print(f"⚠️ Failed to apply audio_processor overrides: {_e}")
 
-            # Blunt micro-batching switch (propagate to config module for consistency)
-            if 'enable_micro_batching' in config_params:
-                emb = bool(config_params['enable_micro_batching'])
-                from config import config as _cfg
-                _cfg.ENABLE_MICRO_BATCHING = emb
-                _cfg.ENABLE_VADER_MICRO_BATCHING = emb
-                print(f"🧩 Micro-batching globally {'ENABLED' if emb else 'DISABLED'} via GUI")
         except Exception as _e:
             print(f"⚠️ Failed to apply GUI runtime overrides: {_e}")
 
@@ -1789,6 +2283,7 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
     ]
 
     start_time = time.time()
+    generation_timing = _new_generation_timing()
     total_chunks = len(all_chunks)
     log_path = output_root / "chunk_validation.log"
     total_audio_duration = 0.0
@@ -1811,10 +2306,9 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
         eff_workers = int((config_params or {}).get('max_workers', getattr(_cfg, 'MAX_WORKERS', 0)))
         eff_batch = int((config_params or {}).get('batch_size', getattr(_cfg, 'BATCH_SIZE', 0)))
         eff_tts_batch = int((config_params or {}).get('tts_batch_size', getattr(_cfg, 'TTS_BATCH_SIZE', 16)))
-        eff_micro = bool((config_params or {}).get('enable_micro_batching', getattr(_cfg, 'ENABLE_MICRO_BATCHING', True)))
-        run_sig = (device, eff_workers, eff_batch, eff_tts_batch, eff_micro)
+        run_sig = (device, eff_workers, eff_batch, eff_tts_batch)
     except Exception:
-        run_sig = (device, 0, 0, 0, True)
+        run_sig = (device, 0, 0, 0)
 
     global _LAST_RUN_SIGNATURE
     if _LAST_RUN_SIGNATURE is not None and run_sig != _LAST_RUN_SIGNATURE:
@@ -1922,6 +2416,9 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
         print(f"🔧 Using {optimal_workers} workers for batch {batch_start+1}-{batch_end}")
 
         use_vader = tts_params.get('use_vader', True)
+        pipeline_mode = config_params.get('tts_pipeline_mode', TTS_PIPELINE_MODE)
+        if pipeline_mode not in {'t3_batch', 'staged_t3_s3gen'}:
+            raise ValueError(f"Unsupported TTS pipeline mode: {pipeline_mode}")
 
         # ============================================================================
         # CLEAN PROCESSING WITH REAL OPTIMIZATIONS
@@ -1929,64 +2426,142 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
         batch_start_time = time.time()
         print(f"🚀 Processing with REAL TTS optimizations (mixed precision, torch.compile)")
 
-        # MEASURE BATCH-BINNING EFFECTIVENESS
-        from config.config import ENABLE_BATCH_BINNING
-        if ENABLE_BATCH_BINNING:
-            print("📊 PERFORMANCE MEASUREMENT: Batch-binning enabled - measuring actual speed impact")
-
         batch_timing_start = time.time()
 
         if not use_vader:
             # --- BATCH MODE ---
             print(f"🚀 VADER disabled. Running in high-performance batch mode.")
+            print(f"🔀 TTS pipeline: {pipeline_mode}")
 
-            # Check if batch-binning is enabled for micro-batching by parameters
-            from config.config import ENABLE_BATCH_BINNING
-            if ENABLE_BATCH_BINNING:
-                try:
-                    from modules.terminal_logger import log_only
-                    log_only("🔗 BATCH-BINNING: Grouping chunks by rounded TTS parameters for micro-batching")
-                except Exception:
-                    pass
-                chunk_batches = create_parameter_microbatches(batch_chunks)
-                try:
-                    from modules.terminal_logger import log_only
-                    log_only(f"📊 Processing {len(batch_chunks)} chunks in {len(chunk_batches)} parameter-grouped micro-batches")
-                except Exception:
-                    pass
+            tts_batch_size = int(config_params.get('tts_batch_size', TTS_BATCH_SIZE))
+            chunk_batches = split_length_compatible_batches(batch_chunks, tts_batch_size)
+            print(f"📊 Processing {len(batch_chunks)} chunks in {len(chunk_batches)} length-compatible batches up to size {tts_batch_size}")
+
+            flash_model = all(
+                hasattr(model, attribute)
+                for attribute in ("t3", "s3gen", "_encode_text", "_trim_to_eos")
+            )
+            if not flash_model:
+                with ThreadPoolExecutor(max_workers=optimal_workers) as executor:
+                    for batch in chunk_batches:
+                        if shutdown_requested:
+                            break
+                        futures.append(executor.submit(
+                            process_batch,
+                            batch, text_chunks_dir, audio_chunks_dir,
+                            voice_path, tts_params, start_time, total_chunks,
+                            punc_norm, book_dir.name, log_run, log_path, device,
+                            model, asr_model, 0, asr_enabled, asr_client,
+                            generation_timing
+                        ))
+
+                    for fut in as_completed(futures):
+                        try:
+                            results_list = fut.result()
+                            for idx, wav_path in results_list:
+                                if wav_path and wav_path.exists():
+                                    chunk_duration = get_chunk_audio_duration(wav_path)
+                                    total_audio_duration += chunk_duration
+                                    batch_results.append((idx, wav_path))
+                            if len(batch_results) == 1 or (len(batch_results) % 5) == 0 or len(batch_results) == len(batch_chunks):
+                                log_chunk_progress(batch_start + len(batch_results) - 1, total_chunks, _generation_start_wall(generation_timing, start_time), total_audio_duration)
+                        except Exception as e:
+                            logging.error(f"Future failed in batch: {e}")
             else:
-                # Standard fixed-size batching
-                tts_batch_size = config_params.get('tts_batch_size', 16)
-                chunk_batches = [batch_chunks[i:i + tts_batch_size] for i in range(0, len(batch_chunks), tts_batch_size)]
-                print(f"📊 Processing {len(batch_chunks)} chunks in {len(chunk_batches)} fixed batches of size {tts_batch_size}")
+                from modules.s3gen_scheduler import schedule_s3gen_batches
 
-            with ThreadPoolExecutor(max_workers=optimal_workers) as executor:
-                for batch in chunk_batches:
-                    if shutdown_requested:
-                        break
-                    futures.append(executor.submit(
-                        process_batch,
-                        batch, text_chunks_dir, audio_chunks_dir,
-                        voice_path, tts_params, start_time, total_chunks,
-                        punc_norm, book_dir.name, log_run, log_path, device,
-                        model, asr_model, 0, asr_enabled, asr_client
-                    ))
+                staged_t3_only = pipeline_mode == 'staged_t3_s3gen'
+                allow_mixed_lengths = True
+                t3_results = []
+                with ThreadPoolExecutor(max_workers=optimal_workers) as executor:
+                    def submit_t3_batch(batch):
+                        """Submit one T3 batch through the bounded queue."""
+                        return executor.submit(
+                            process_flash_t3_batch,
+                            batch, tts_params, model, voice_path,
+                            generation_timing,
+                            staged_t3_only,
+                            allow_mixed_lengths,
+                        )
 
-                # Wait for batches to complete
-                for fut in as_completed(futures):
-                    try:
-                        # process_batch returns a list of (idx, wav_path) tuples
-                        results_list = fut.result()
-                        for idx, wav_path in results_list:
-                            if wav_path and wav_path.exists():
-                                chunk_duration = get_chunk_audio_duration(wav_path)
-                                total_audio_duration += chunk_duration
-                                batch_results.append((idx, wav_path))
-                        # Throttle ETA printing to avoid console spam; status layer still receives updates
-                        if len(batch_results) == 1 or (len(batch_results) % 5) == 0 or len(batch_results) == len(batch_chunks):
-                            log_chunk_progress(batch_start + len(batch_results) - 1, total_chunks, start_time, total_audio_duration)
-                    except Exception as e:
-                        logging.error(f"Future failed in batch: {e}")
+                    t3_jobs = (
+                        batch for batch in chunk_batches
+                        if not shutdown_requested
+                    )
+                    max_pending_batches = max(1, optimal_workers)
+                    for result in _iter_bounded_future_results(
+                        executor,
+                        t3_jobs,
+                        submit_t3_batch,
+                        max_pending_batches,
+                    ):
+                        t3_results.append(result)
+                        _record_batch_observation(
+                            "t3_queue_depth", len(t3_results)
+                        )
+
+                retained_rows = []
+                fallback_results = []
+                for result in t3_results:
+                    retained_rows.extend(result["retained_rows"])
+                    fallback_results.extend(result["fallback_results"])
+
+                chunk_lookup = {
+                    chunk_data['index']: chunk_data
+                    for chunk_data in batch_chunks
+                }
+                for chunk_data, waveform in fallback_results:
+                    idx, wav_path = _save_generated_waveform(
+                        waveform, chunk_data, audio_chunks_dir, model,
+                        generation_timing=generation_timing,
+                    )
+                    if wav_path.exists():
+                        total_audio_duration += get_chunk_audio_duration(wav_path)
+                        batch_results.append((idx, wav_path))
+
+                s3gen_batches = schedule_s3gen_batches(
+                    retained_rows,
+                    tts_batch_size,
+                    max_padded_tokens=int(
+                        config_params.get(
+                            's3gen_max_padded_tokens',
+                            tts_batch_size * 300,
+                        )
+                    ),
+                )
+                print(
+                    f"📦 Scheduling {len(retained_rows)} retained T3 rows in "
+                    f"{len(s3gen_batches)} padded S3Gen batches"
+                )
+                with ThreadPoolExecutor(max_workers=optimal_workers) as executor:
+                    def submit_s3gen_batch(s3gen_batch):
+                        """Submit one S3Gen batch through bounded backpressure."""
+                        return executor.submit(
+                            process_flash_s3gen_batch,
+                            model,
+                            s3gen_batch,
+                        )
+
+                    for batch_result in _iter_bounded_future_results(
+                        executor,
+                        s3gen_batches,
+                        submit_s3gen_batch,
+                        max_pending_batches,
+                    ):
+                        _record_batch_observation(
+                            "s3gen_queue_depth", len(s3gen_batches)
+                        )
+                        for idx, waveform in batch_result:
+                            chunk_data = chunk_lookup[idx]
+                            saved_idx, wav_path = _save_generated_waveform(
+                                waveform, chunk_data, audio_chunks_dir, model,
+                                generation_timing=generation_timing,
+                            )
+                            if wav_path.exists():
+                                total_audio_duration += get_chunk_audio_duration(wav_path)
+                                batch_results.append((saved_idx, wav_path))
+                                if len(batch_results) == 1 or (len(batch_results) % 5) == 0 or len(batch_results) == len(batch_chunks):
+                                    log_chunk_progress(batch_start + len(batch_results) - 1, total_chunks, _generation_start_wall(generation_timing, start_time), total_audio_duration)
 
             # Calculate performance with DETAILED debugging
             batch_end_time = time.time()
@@ -2001,12 +2576,6 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
             print(f"   Chunks processed: {len(batch_chunks)}")
             print(f"   Batch range: {batch_start+1}-{batch_end}")
 
-            # BATCH-BINNING PERFORMANCE MEASUREMENT
-            from config.config import ENABLE_BATCH_BINNING
-            if ENABLE_BATCH_BINNING:
-                chunks_per_sec = len(batch_chunks) / actual_processing_time if actual_processing_time > 0 else 0
-                print(f"📊 BATCH-BINNING PERFORMANCE: {chunks_per_sec:.2f} chunks/sec with parameter rounding")
-
             if total_batch_time > 0:
                 its_performance = len(batch_chunks) / total_batch_time
                 print(f"📊 CALCULATED PERFORMANCE: {its_performance:.2f} it/s")
@@ -2015,60 +2584,10 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
                 print("⚠️ Zero or negative processing time detected")
 
         else:
-            # --- VADER-ENABLED MODE ---
-            from config.config import ENABLE_VADER_MICRO_BATCHING
-            if ENABLE_VADER_MICRO_BATCHING:
-                try:
-                    from modules.terminal_logger import log_only
-                    log_only("🎨 VADER enabled. Running in nuanced mode with micro-batching.")
-                except Exception:
-                    pass
-            else:
-                try:
-                    from modules.terminal_logger import log_only
-                    log_only("🎨 VADER enabled. Micro-batching disabled by config; processing per-chunk.")
-                except Exception:
-                    pass
-
-            # Apply parameter rounding for micro-batching
-            rounded_chunks = []
-            for chunk_data in batch_chunks:
-                if isinstance(chunk_data, dict):
-                    rounded_chunk = chunk_data.copy()
-                    if 'tts_params' in rounded_chunk and rounded_chunk['tts_params']:
-                        tts_params_copy = rounded_chunk['tts_params'].copy()
-                        # Round VADER-influenced parameters to enable groupings
-                        for param in ['exaggeration', 'cfg_scale', 'temperature']:
-                            if param in tts_params_copy:
-                                original_value = tts_params_copy[param]
-                                steps = round(original_value / BATCH_BIN_PRECISION)
-                                binned_value = steps * BATCH_BIN_PRECISION
-                                tts_params_copy[param] = round(binned_value, 3)
-                        rounded_chunk['tts_params'] = tts_params_copy
-                    rounded_chunks.append(rounded_chunk)
-                else:
-                    rounded_chunks.append(chunk_data)
-
-            # Create micro-batches by parameter groupings, or force per-chunk
-            if ENABLE_VADER_MICRO_BATCHING:
-                micro_batches = create_parameter_microbatches(rounded_chunks)
-                try:
-                    from modules.terminal_logger import log_only
-                    log_only(f"🔗 VADER MICRO-BATCHING: Created {len(micro_batches)} micro-batches from {len(rounded_chunks)} chunks")
-                except Exception:
-                    pass
-            else:
-                micro_batches = [[ch] for ch in rounded_chunks]
+            micro_batches = [[ch] for ch in batch_chunks]
 
             with ThreadPoolExecutor(max_workers=optimal_workers) as executor:
                 for microbatch_idx, microbatch in enumerate(micro_batches):
-                    if ENABLE_VADER_MICRO_BATCHING:
-                        try:
-                            from modules.terminal_logger import log_only
-                            log_only(f"🎯 Processing micro-batch {microbatch_idx+1}/{len(micro_batches)} ({len(microbatch)} chunks)")
-                        except Exception:
-                            pass
-
                     # Process all chunks in this micro-batch
                     microbatch_futures = []
                     for i, chunk_data in enumerate(microbatch):
@@ -2101,7 +2620,8 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
                             voice_path, chunk_tts_params, start_time, total_chunks,
                             punc_norm, book_dir.name, log_run, log_path, device,
                             model, asr_model, boundary_type=boundary_type,
-                            enable_asr=asr_enabled, asr_client=asr_client
+                            enable_asr=asr_enabled, asr_client=asr_client,
+                            generation_timing=generation_timing,
                         ))
 
                     # Wait for micro-batch to complete
@@ -2124,7 +2644,7 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
                                 # Track chunk performance for smart reload
                                 if ENABLE_SMART_RELOAD:
                                     chunk_idx = batch_start + sum(len(mb) for mb in micro_batches[:microbatch_idx]) + completed_count
-                                    elapsed_time = time.time() - start_time
+                                    elapsed_time = _generation_elapsed(generation_timing)
                                     processing_time_per_chunk = elapsed_time / chunk_idx if chunk_idx > 0 else 1.0
                                     estimated_tokens = estimate_tokens_in_text(chunk.get('text', ''))
                                     track_chunk_performance(chunk_idx, processing_time_per_chunk, estimated_tokens)
@@ -2136,7 +2656,7 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
                                     + sum(len(mb) for mb in micro_batches[:microbatch_idx])
                                     + completed_count - 1,
                                     total_chunks,
-                                    start_time,
+                                    _generation_start_wall(generation_timing, start_time),
                                     total_audio_duration,
                                 )
 
@@ -2152,18 +2672,26 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
             from modules.asr_manager import cleanup_asr_model
             cleanup_asr_model(asr_model)
 
-        # Force CUDA cleanup
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-            torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
-
-        # Force garbage collection (twice for cyclic refs)
-        gc.collect()
-        gc.collect()
-
-        # Brief pause for async cleanup
-        time.sleep(2)
+        batch_stats = _snapshot_batch_stats()
+        print(
+            "📊 Batch telemetry: "
+            f"calls={batch_stats['batch_calls']}, "
+            f"fallbacks={batch_stats['fallback_calls']} "
+            f"(API={batch_stats['fallback_api_unavailable']}, "
+            f"generation={batch_stats['fallback_generation_error']}), "
+            f"quality_rows={batch_stats['quality_fallback_rows']}, "
+            f"t3_sizes={batch_stats['t3_batch_sizes']}, "
+            f"t3_padding={batch_stats['t3_padding_tokens']}, "
+            f"s3_sizes={batch_stats['s3gen_batch_sizes']}, "
+            f"s3_workloads={batch_stats['s3gen_padded_token_workloads']}, "
+            f"s3_padding={batch_stats['s3gen_padding_waste']}, "
+            f"sizes={batch_stats['batch_size_counts']}, "
+            f"shape_groups={batch_stats['compatible_shape_groups'][-8:]}, "
+            f"text_lengths={batch_stats['text_token_lengths'][-8:]}, "
+            f"speech_lengths={batch_stats['speech_lengths'][-8:]}, "
+            f"eos={batch_stats['eos_positions'][-8:]}, "
+            f"fallback_reasons={batch_stats['fallback_reasons']}"
+        )
 
         print(f"✅ Batch {batch_start+1}-{batch_end} completed.")
 
@@ -2253,7 +2781,7 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
         return None, None, []
 
     # Calculate timing
-    elapsed_total = time.time() - start_time
+    elapsed_total = _generation_elapsed(generation_timing)
     elapsed_td = timedelta(seconds=int(elapsed_total))
 
     total_audio_duration_final = sum(get_chunk_audio_duration(chunk_path) for chunk_path in chunk_paths)
@@ -2261,6 +2789,7 @@ def process_book_folder(book_dir, voice_path, tts_params, device, skip_cleanup=F
     realtime_factor = total_audio_duration_final / elapsed_total if elapsed_total > 0 else 0.0
 
     print(f"\n⏱️ TTS Processing Complete:")
+    print(f"   Raw T3/S3Gen window: {elapsed_total:.2f} seconds")
     print(f"   Elapsed Time: {CYAN}{str(elapsed_td)}{RESET}")
     print(f"   Audio Duration: {GREEN}{str(audio_duration_td)}{RESET}")
     print(f"   Realtime Factor: {YELLOW}{realtime_factor:.2f}x{RESET}")
@@ -2540,8 +3069,7 @@ def regenerate_single_chunk(chunk_text: str, tts_params: dict, tts_model, voice_
         filtered_params = {k: v for k, v in tts_params.items() if k in flash_supported_params}
         filtered_params.setdefault('num_steps', DEFAULT_FLASH_NUM_STEPS)
         filtered_params.setdefault('time_shift_tau', DEFAULT_FLASH_TIME_SHIFT_TAU)
-        # Force torch SDPA - flashinfer's kernels are ABI-matched to torch
-        # 2.7.x; we're on 2.6.0 and "auto" would crash trying flashinfer.
+        # Keep Torch SDPA explicit for stable single-item fallback behavior.
         filtered_params.setdefault('backend', 'torch')
 
         # Generate audio with filtered parameters

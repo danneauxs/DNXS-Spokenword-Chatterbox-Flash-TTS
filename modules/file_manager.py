@@ -51,6 +51,7 @@ import subprocess
 import soundfile as sf
 import os
 import re
+import shutil
 import time
 import logging
 from pathlib import Path
@@ -79,33 +80,67 @@ def ffmpeg_error_message():
 # ============================================================================
 
 def list_voice_samples():
-    """List available voice samples"""
-    return sorted(VOICE_SAMPLES_DIR.glob("*.wav"), key=lambda x: x.stem.lower())
+    """Return supported source voice files from the shared Voice_Samples directory."""
+    supported_extensions = {".wav", ".mp3", ".flac", ".m4a", ".ogg"}
+    if not VOICE_SAMPLES_DIR.exists():
+        return []
+    return sorted(
+        (path for path in VOICE_SAMPLES_DIR.iterdir() if path.suffix.lower() in supported_extensions),
+        key=lambda path: path.stem.lower(),
+    )
 
 def ensure_voice_sample_compatibility(input_path, output_dir=None):
-    """Ensure voice sample is compatible with TTS (24kHz mono)"""
-    input_path = str(input_path)
-    ext = os.path.splitext(input_path)[1].lower()
-    basename = os.path.splitext(os.path.basename(input_path))[0]
-    output_dir = output_dir or os.path.dirname(input_path)
-    output_path = os.path.join(output_dir, basename + "_ttsready.wav")
+    """Create or reuse the canonical 24 kHz mono ``*_ttsready.wav`` voice file.
+
+    The canonical file always lives in ``output_dir`` when one is supplied. A
+    compatible source is copied with the ``_ttsready`` suffix; an incompatible
+    source is converted to that same filename.
+    """
+    input_path = Path(input_path)
+    output_dir = Path(output_dir) if output_dir else input_path.parent
+    source_stem = input_path.stem
+    output_stem = source_stem if source_stem.endswith("_ttsready") else f"{source_stem}_ttsready"
+    output_path = output_dir / f"{output_stem}.wav"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        info = sf.info(input_path)
-        if (ext == '.wav' and info.samplerate == 24000 and info.channels == 1):
-            return input_path
+        output_info = sf.info(output_path)
+        if output_info.samplerate == 24000 and output_info.channels == 1:
+            return str(output_path)
     except Exception:
         pass
 
+    try:
+        input_info = sf.info(input_path)
+        input_is_compatible = (
+            input_path.suffix.lower() == ".wav"
+            and input_info.samplerate == 24000
+            and input_info.channels == 1
+        )
+    except Exception:
+        input_is_compatible = False
+
+    if input_is_compatible and input_path.resolve() != output_path.resolve():
+        shutil.copy2(input_path, output_path)
+        return str(output_path)
+
+    # FFmpeg cannot overwrite an input file in place, so normalize a malformed
+    # existing *_ttsready.wav through a temporary sibling before replacing it.
+    conversion_path = output_path
+    if input_path.resolve() == output_path.resolve():
+        conversion_path = output_path.with_name(f"{output_path.stem}.tmp{output_path.suffix}")
+
     cmd = [
         "ffmpeg", "-y",
-        "-i", input_path,
+        "-i", str(input_path),
         "-ar", "24000",
         "-ac", "1",
-        output_path
+        str(conversion_path)
     ]
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return output_path
+    if conversion_path != output_path:
+        conversion_path.replace(output_path)
+    return str(output_path)
 
 # ============================================================================
 # FFMPEG OPERATIONS
@@ -591,82 +626,10 @@ def save_chunk_info(text_chunks_dir, chunks_info):
 
     import json
     
-    # Apply batch-binning if enabled
-    if ENABLE_BATCH_BINNING:
-        chunks_info = apply_batch_binning(chunks_info)
-
     with open(info_path, 'w', encoding='utf-8') as f:
         json.dump(chunks_info, f, indent=2, ensure_ascii=False)
 
     return info_path
-
-def apply_batch_binning(chunks_info):
-    """Round VADER parameters to nearest bin for better microbatching"""
-    print(f"📦 BATCH-BINNING: Processing {len(chunks_info)} chunks with precision {BATCH_BIN_PRECISION}")
-    binned_chunks = []
-    param_changes = {'exaggeration': [], 'cfg_scale': [], 'temperature': []}
-    
-    for chunk in chunks_info:
-        # Create a copy of the chunk to avoid modifying the original
-        binned_chunk = chunk.copy()
-        
-        # Apply binning to tts_params if they exist
-        if 'tts_params' in binned_chunk and binned_chunk['tts_params']:
-            tts_params = binned_chunk['tts_params'].copy()
-            
-            # Round key VADER-influenced parameters to nearest BATCH_BIN_PRECISION
-            for param in ['exaggeration', 'cfg_scale', 'temperature']:
-                if param in tts_params:
-                    original_value = tts_params[param]
-                    # Round to nearest BATCH_BIN_PRECISION (e.g., 0.05)
-                    # Use proper rounding: divide by precision, round, multiply back
-                    steps = round(original_value / BATCH_BIN_PRECISION)
-                    binned_value = steps * BATCH_BIN_PRECISION
-                    binned_final = round(binned_value, 3)  # Keep 3 decimal places for precision
-                    
-                    # Track changes for measurement
-                    if abs(original_value - binned_final) > 0.001:  # Significant change
-                        param_changes[param].append((original_value, binned_final))
-                    
-                    tts_params[param] = binned_final
-            
-            binned_chunk['tts_params'] = tts_params
-        
-        binned_chunks.append(binned_chunk)
-    
-    # Report batch-binning effectiveness
-    total_changes = sum(len(changes) for changes in param_changes.values())
-    if total_changes > 0:
-        print(f"📦 BATCH-BINNING RESULTS:")
-        for param, changes in param_changes.items():
-            if changes:
-                unique_original = len(set(orig for orig, _ in changes))
-                unique_binned = len(set(binned for _, binned in changes))
-                print(f"   {param}: {len(changes)} chunks changed, {unique_original}→{unique_binned} unique values")
-        print(f"📦 Total parameter changes: {total_changes}")
-        
-        # Calculate batching potential
-        original_combinations = set()
-        binned_combinations = set()
-        for chunk in chunks_info:
-            if 'tts_params' in chunk and chunk['tts_params']:
-                tp = chunk['tts_params']
-                orig_combo = (tp.get('exaggeration', 0.5), tp.get('cfg_scale', 1.0), tp.get('temperature', 0.85))
-                original_combinations.add(orig_combo)
-        
-        for chunk in binned_chunks:
-            if 'tts_params' in chunk and chunk['tts_params']:
-                tp = chunk['tts_params']
-                binned_combo = (tp.get('exaggeration', 0.5), tp.get('cfg_scale', 1.0), tp.get('temperature', 0.85))
-                binned_combinations.add(binned_combo)
-        
-        print(f"📦 MICRO-BATCH IMPROVEMENT: {len(original_combinations)}→{len(binned_combinations)} parameter combinations")
-        improvement = (len(original_combinations) - len(binned_combinations)) / len(original_combinations) * 100 if original_combinations else 0
-        print(f"📦 Batch consolidation: {improvement:.1f}% reduction in unique parameter sets")
-    else:
-        print("📦 BATCH-BINNING: No parameter changes needed - values already binned")
-    
-    return binned_chunks
 
 def load_chunk_info(text_chunks_dir):
     """Load chunk information if available"""
